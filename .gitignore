@@ -42,7 +42,6 @@ app.log
 emqutiti
 
 # generated files
-docs/*.cast
 docs/*.gif
 
 # Crush agent files

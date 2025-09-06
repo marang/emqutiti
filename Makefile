@@ -1,7 +1,7 @@
 PROTO_FILES := proxy/proxy.proto
 PROTOC ?= protoc
 
-.PHONY: build test vet proto cast
+.PHONY: build test vet proto tape
 
 build:
 	go build -trimpath -ldflags="-s -w" -o emqutiti ./cmd/emqutiti
@@ -15,8 +15,13 @@ test: vet
 proto:
 	$(PROTOC) --go_out=paths=source_relative:. --go-grpc_out=paths=source_relative:. $(PROTO_FILES)
 
-cast:
-	docker build -f docs/scripts/Dockerfile.cast -t emqutiti-cast .
+tape:
+	docker build -f docs/scripts/Dockerfile.vhs -t emqutiti-tape docs/scripts
 	docker run --rm -it \
-		-v "$(PWD)/docs:/app/docs" \
-		emqutiti-cast docs/scripts/record_casts.sh
+		--user $(shell id -u):$(shell id -g) \
+		-e HOME=/tmp \
+		--security-opt seccomp=unconfined \
+		--security-opt apparmor=unconfined \
+		--cap-add=SYS_ADMIN \
+		-v "$(CURDIR)":/work -w /work \
+		emqutiti-tape docs/scripts/record_tapes.sh

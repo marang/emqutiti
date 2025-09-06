@@ -9,10 +9,10 @@
   Run `go mod tidy` when dependencies change.
 - **Tasks:** Use the `Makefile` for common workflows:
   `make build` compiles the app, `make test` runs vet and tests,
-  `make proto` regenerates gRPC code, and `make cast` records demo
+  `make proto` regenerates gRPC code, and `make tape` records demo
   sessions.
 - **Artifacts:** Avoid committing binary files such as GIFs. Generate them
-  locally from `.cast` recordings instead.
+  locally from `.tape` recordings instead.
 - **Commits:** Keep messages short, wrap lines at 72 characters, and summarize
   changes and test results in pull requests.
 - **Docs:** Keep `README.md`, `TODO.md`, `AGENTS.md`, and `help/help.md` in
@@ -76,8 +76,8 @@ changes.
 - Create topic branches off `main` and keep pull requests focused.
 - Describe the problem and solution clearly in commit messages.
 - Keep commits small and avoid mixing unrelated changes.
-- Record TUI demos with `asciinema` and keep the `.cast` files under `docs/`.
-- Generate GIF previews locally using `asciinema-agg` but do not commit them.
-- Run `agg docs/demo.cast docs/demo.gif` to regenerate previews when needed.
-- Example `.exp` scripts in `docs/scripts/` automate recording.
-- See the README for using `Dockerfile.cast` if you prefer not to install asciinema.
+- Record TUI demos with `vhs` and keep the `.tape` files under `docs/`.
+- Rebuild GIF previews with `make tape`, which runs `docs/scripts/record_tapes.sh`
+  inside a helper container built from `docs/scripts/Dockerfile.vhs`.
+- Run the script directly if `vhs` is already on your `PATH`, but do not commit
+  generated GIFs.
