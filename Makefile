@@ -20,5 +20,8 @@ tape:
 	docker run --rm -it \
 		--user $(shell id -u):$(shell id -g) \
 		-e HOME=/tmp \
+		--security-opt seccomp=unconfined \
+		--security-opt apparmor=unconfined \
+		--cap-add=SYS_ADMIN \
 		-v "$(CURDIR)":/work -w /work \
 		emqutiti-tape docs/scripts/record_tapes.sh
