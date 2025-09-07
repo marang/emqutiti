@@ -1,3 +1,7 @@
+Set Width 1600
+Set Height 1000
+Set FontSize 18
+Set Padding 16
 Type "./emqutiti"
 Enter
 Sleep 1200ms
@@ -25,8 +29,8 @@ Tab
 Tab
 Tab
 Space
-Sleep 200ms
+Sleep 3000ms
 # Save
 Enter
-Sleep 1000ms
+Sleep 4000ms
 Ctrl+D

@@ -1,22 +1,25 @@
+Set Width 1600
+Set Height 1000
+Set FontSize 18
+Set Padding 16
 Type "./emqutiti -p HiveMQ"
 Enter
-Sleep 1500ms
-# Connect to the selected broker (HiveMQ)
+Sleep 1000ms
 Enter
-Sleep 1500ms
-# Focus topic input and add a topic
-Tab
+Sleep 3000ms
+Ctrl+J
+Sleep 150ms
+Ctrl+K
 Type "demo/topic"
 Enter
-Sleep 300ms
-# Go back to topic chips so selection becomes valid
-Shift+Tab
-Sleep 200ms
-# Move to message input
+Sleep 3000ms
 Tab
+Type p
+Sleep 500ms
 Tab
-Type "hello from vhs"
-# Publish
+Sleep 1000ms
+Type Aloha
+Sleep 1000ms
 Ctrl+S
-Sleep 1200ms
+Sleep 4000ms
 Ctrl+D
