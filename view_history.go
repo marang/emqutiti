@@ -9,6 +9,9 @@ import (
 
 // renderHistorySection renders the history list box.
 func (m *model) renderHistorySection() string {
+	if m.layout.history.collapsed {
+		return ""
+	}
 	per := m.history.List().Paginator.PerPage
 	totalItems := len(m.history.List().Items())
 	histSP := -1.0

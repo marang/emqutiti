@@ -78,7 +78,8 @@ func (c component) Blur() {
 }
 
 type boxConfig struct {
-	height int
+	height    int
+	collapsed bool
 }
 
 type layoutConfig struct {

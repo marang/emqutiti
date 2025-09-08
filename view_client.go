@@ -29,37 +29,51 @@ func (m *model) clientInfoLine() string {
 func (m *model) viewClient() string {
 	m.ui.elemPos = map[string]int{}
 	statusLine := m.clientInfoLine()
-	topicsBox, topicBox, bounds := m.renderTopicsSection()
-	messageBox := m.message.View()
-	messagesBox := m.renderHistorySection()
-
-	m.topics.ChipBounds = make([]topics.ChipBound, len(bounds))
-	for i, b := range bounds {
-		m.topics.ChipBounds[i] = topics.ChipBound{
-			XPos:   b.XPos,
-			YPos:   b.YPos,
-			Width:  b.Width,
-			Height: b.Height,
-		}
-	}
-
-	content := lipgloss.JoinVertical(lipgloss.Left, topicBox, topicsBox, messageBox, messagesBox)
+	var parts []string
 	y := 1
 
-	m.ui.elemPos[idTopic] = y
-	y += lipgloss.Height(topicBox)
-	m.ui.elemPos[idTopics] = y
-	y += lipgloss.Height(topicsBox)
-	m.ui.elemPos[idMessage] = y
-	y += lipgloss.Height(messageBox)
-	m.ui.elemPos[idHistory] = y
+	if !m.layout.topics.collapsed {
+		topicsBox, topicBox, bounds := m.renderTopicsSection()
+		parts = append(parts, topicBox, topicsBox)
 
-	startX := 2
-	startY := m.ui.elemPos[idTopics] + 1
-	for i := range m.topics.ChipBounds {
-		m.topics.ChipBounds[i].XPos += startX
-		m.topics.ChipBounds[i].YPos += startY
+		m.ui.elemPos[idTopic] = y
+		y += lipgloss.Height(topicBox)
+		m.ui.elemPos[idTopics] = y
+		y += lipgloss.Height(topicsBox)
+
+		m.topics.ChipBounds = make([]topics.ChipBound, len(bounds))
+		for i, b := range bounds {
+			m.topics.ChipBounds[i] = topics.ChipBound{
+				XPos:   b.XPos,
+				YPos:   b.YPos,
+				Width:  b.Width,
+				Height: b.Height,
+			}
+		}
+		startX := 2
+		startY := m.ui.elemPos[idTopics] + 1
+		for i := range m.topics.ChipBounds {
+			m.topics.ChipBounds[i].XPos += startX
+			m.topics.ChipBounds[i].YPos += startY
+		}
+	} else {
+		m.topics.ChipBounds = nil
 	}
+
+	if !m.layout.message.collapsed {
+		messageBox := m.message.View()
+		parts = append(parts, messageBox)
+		m.ui.elemPos[idMessage] = y
+		y += lipgloss.Height(messageBox)
+	}
+
+	if !m.layout.history.collapsed {
+		messagesBox := m.renderHistorySection()
+		parts = append(parts, messagesBox)
+		m.ui.elemPos[idHistory] = y
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	box := lipgloss.NewStyle().Width(m.ui.width).Padding(0, 1, 1, 1).Render(content)
 	m.ui.viewport.SetContent(box)
