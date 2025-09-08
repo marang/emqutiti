@@ -123,6 +123,9 @@ func (m *model) buildTopicBoxes(content string, boxHeight, infoHeight int, scrol
 
 // renderTopicsSection renders topics and topic input boxes.
 func (m *model) renderTopicsSection() (string, string, []topics.ChipBound) {
+	if m.layout.topics.collapsed {
+		return "", "", nil
+	}
 	width := m.ui.width - 4
 	chips := renderTopicChips(m.topics.Items, m.topics.Selected(), width)
 	content, bounds, boxHeight, infoHeight, scroll := m.layoutTopicViewport(chips)

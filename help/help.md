@@ -14,6 +14,9 @@
 | Ctrl+E | Publish retained message |
 | Ctrl+L | Open log viewer |
 | Ctrl+Shift+Up / Ctrl+Shift+Down | Resize panels |
+| Ctrl+1 | Toggle topics pane |
+| Ctrl+2 | Toggle message pane |
+| Ctrl+3 | Toggle history pane |
 
 ## Navigation
 
