@@ -80,12 +80,19 @@ func (c *State) RefreshConnectionItems() {
 	c.Manager.refreshList()
 }
 
-// SaveCurrent persists topics and payloads for the active connection.
-func (c *State) SaveCurrent(topics []TopicSnapshot, payloads []PayloadSnapshot) {
+// SaveCurrent persists topics, payloads, and layout heights for the active
+// connection.
+func (c *State) SaveCurrent(topics []TopicSnapshot, payloads []PayloadSnapshot, messageHeight, topicsHeight, historyHeight int) {
 	if c.Active == "" {
 		return
 	}
-	c.Saved[c.Active] = ConnectionSnapshot{Topics: topics, Payloads: payloads}
+	c.Saved[c.Active] = ConnectionSnapshot{
+		Topics:        topics,
+		Payloads:      payloads,
+		MessageHeight: messageHeight,
+		TopicsHeight:  topicsHeight,
+		HistoryHeight: historyHeight,
+	}
 	if err := SaveState(c.Saved); err != nil {
 		log.Printf("Failed to save connection state: %v", err)
 	}
