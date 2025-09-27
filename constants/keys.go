@@ -51,4 +51,7 @@ const (
 	KeyCtrlK         = "ctrl+k"
 	KeyCtrlDown      = "ctrl+down"
 	KeyCtrlJ         = "ctrl+j"
+	KeyCtrl1         = "ctrl+1"
+	KeyCtrl2         = "ctrl+2"
+	KeyCtrl3         = "ctrl+3"
 )
