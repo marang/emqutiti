@@ -51,6 +51,28 @@ func initMessage() message.State {
 	return ms
 }
 
+func savedLayoutProfile(state connections.State) string {
+	if profileName != "" {
+		return profileName
+	}
+	if state.Active != "" {
+		return state.Active
+	}
+	return state.Manager.DefaultProfileName
+}
+
+func applySnapshotHeights(layout *layoutConfig, snap connections.ConnectionSnapshot) {
+	if snap.MessageHeight > 0 {
+		layout.message.height = snap.MessageHeight
+	}
+	if snap.TopicsHeight > 0 {
+		layout.topics.height = snap.TopicsHeight
+	}
+	if snap.HistoryHeight > 0 {
+		layout.history.height = snap.HistoryHeight
+	}
+}
+
 // initialModel creates the main program model with optional connection data.
 func initialModel(conns *connections.Connections) (*model, error) {
 	order := append([]string(nil), focusByMode[constants.ModeClient]...)
@@ -64,11 +86,17 @@ func initialModel(conns *connections.Connections) (*model, error) {
 		st = nil
 	}
 	ms := initMessage()
+	layout := initLayout()
+	initialProfile := savedLayoutProfile(cs)
+	if snap, ok := cs.Saved[initialProfile]; ok {
+		applySnapshotHeights(&layout, snap)
+	}
+	ms.TA.SetHeight(layout.message.height)
 	tr := traces.Init()
 	m := &model{
 		connections: cs,
 		ui:          initUI(order),
-		layout:      initLayout(),
+		layout:      layout,
 	}
 	m.history = history.NewComponent(historyModelAdapter{m}, st)
 	if herr != nil {
@@ -82,6 +110,7 @@ func initialModel(conns *connections.Connections) (*model, error) {
 	m.topics = topics.New(m)
 	m.payloads = payloads.New(m, &m.connections)
 	m.traces = traces.NewComponent(m, tr, m.tracesStore())
+	m.applySavedLayout(initialProfile)
 	initComponents(m, order, connComp)
 	m.SetFocus(idTopics)
 	if err := initImporter(m); err != nil {
@@ -89,6 +118,25 @@ func initialModel(conns *connections.Connections) (*model, error) {
 	}
 	m.topics.RebuildActiveTopicList()
 	return m, loadErr
+}
+
+func (m *model) applySavedLayout(profile string) {
+	if profile == "" {
+		return
+	}
+	snap, ok := m.connections.Saved[profile]
+	if !ok {
+		return
+	}
+	applySnapshotHeights(&m.layout, snap)
+	if m.message != nil {
+		m.message.Input().SetHeight(m.layout.message.height)
+	}
+	if m.history != nil && m.ui.width > 0 && m.ui.height > 0 {
+		hw, hh := calcHistorySize(m.ui.width, m.ui.height, m.layout.history.height)
+		m.layout.history.height = hh
+		m.history.List().SetSize(hw, hh)
+	}
 }
 
 // Init enables initial Tea behavior such as mouse support.

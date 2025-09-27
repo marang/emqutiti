@@ -111,7 +111,13 @@ func (m *model) handleModeSwitchKey(msg tea.KeyMsg) tea.Cmd {
 			m.history.Append("", err.Error(), "log", false, err.Error())
 		}
 		m.connections.RefreshConnectionItems()
-		m.connections.SaveCurrent(m.topics.Snapshot(), m.payloads.Snapshot())
+		m.connections.SaveCurrent(
+			m.topics.Snapshot(),
+			m.payloads.Snapshot(),
+			m.layout.message.height,
+			m.layout.topics.height,
+			m.layout.history.height,
+		)
 		m.traces.SavePlannedTraces()
 		return m.SetMode(constants.ModeConnections)
 	case constants.KeyCtrlT:

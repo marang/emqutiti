@@ -117,6 +117,7 @@ func (m *model) HandleConnectResult(msg connections.ConnectResult) {
 	ts, ps := m.connections.RestoreState(profile.Name)
 	m.topics.SetSnapshot(ts)
 	m.payloads.SetSnapshot(ps)
+	m.applySavedLayout(profile.Name)
 	m.topics.SortTopics()
 	m.topics.RebuildActiveTopicList()
 	m.SubscribeActiveTopics()

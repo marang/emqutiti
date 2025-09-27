@@ -8,10 +8,14 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// ConnectionSnapshot holds topics and payloads for a connection in config.toml.
+// ConnectionSnapshot holds topics, payloads, and layout heights for a
+// connection in config.toml.
 type ConnectionSnapshot struct {
-	Topics   []TopicSnapshot   `toml:"topics"`
-	Payloads []PayloadSnapshot `toml:"payloads"`
+	Topics        []TopicSnapshot   `toml:"topics"`
+	Payloads      []PayloadSnapshot `toml:"payloads"`
+	MessageHeight int               `toml:"message_height,omitempty"`
+	TopicsHeight  int               `toml:"topics_height,omitempty"`
+	HistoryHeight int               `toml:"history_height,omitempty"`
 }
 
 // userConfig represents the structure stored in config.toml.
