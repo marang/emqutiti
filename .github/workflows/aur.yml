@@ -52,10 +52,11 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.AUR_PRIVATE_KEY }}
 
-      - name: Trust AUR host key (system-wide)
+      - name: Trust AUR host key
         run: |
-          install -m 644 -D /dev/null /etc/ssh/ssh_known_hosts
-          ssh-keyscan -t ed25519 aur.archlinux.org >> /etc/ssh/ssh_known_hosts
+          install -m 700 -d ~/.ssh
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
       - name: Clone AUR repo
         env:
