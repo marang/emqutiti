@@ -117,7 +117,7 @@ func NewComponent(nav Navigator, api API) *Component {
 	c := &Component{nav: nav, api: api}
 	c.actions = map[string]KeyAction{
 		constants.KeyCtrlD: func(tea.KeyMsg) tea.Cmd { return tea.Quit },
-		constants.KeyCtrlR: func(tea.KeyMsg) tea.Cmd {
+		constants.KeyAltR: func(tea.KeyMsg) tea.Cmd {
 			c.api.ResizeTraces(c.nav.Width()-4, c.nav.Height()-4)
 			return c.nav.SetMode(constants.ModeTracer)
 		},
@@ -214,7 +214,7 @@ func (c *Component) View() string {
 	ch := c.nav.Height() - 6
 	c.api.Manager().ConnectionsList.SetSize(cw, ch)
 	listView := c.api.Manager().ConnectionsList.View()
-	help := ui.InfoStyle.Render("[enter] connect/open client  Ctrl+X disconnect  [a]dd [e]dit [del] delete  Ctrl+O default  Ctrl+R traces")
+	help := ui.InfoStyle.Render("[enter] connect/open client  Ctrl+X disconnect  [a]dd [e]dit [del] delete  Ctrl+O default  Alt+R traces")
 	content := lipgloss.JoinVertical(lipgloss.Left, listView, help)
 	view := ui.LegendBox(content, "Brokers", c.nav.Width()-2, 0, ui.ColBlue, true, -1)
 	return c.api.OverlayHelp(view)

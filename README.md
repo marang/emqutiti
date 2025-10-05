@@ -46,7 +46,7 @@ If a profile is marked as default, the app connects to it automatically on start
 
 Launch `emqutiti -i data.csv -p local` (or `--import data.csv --profile local`) to map columns to JSON and publish them. The wizard supports dry runs and will remember settings in future versions.
 
-Press `Ctrl+R` in the UI to manage recorded traces.
+Press `Alt+R` in the UI to manage recorded traces.
 
 ### Headless tracing
 
@@ -125,7 +125,7 @@ Tips:
 | Exit the program | `Ctrl+D` |
 | Manage payloads | `Ctrl+P` |
 | Manage topics | `Ctrl+T` |
-| Manage traces | `Ctrl+R` |
+| Manage traces | `Alt+R` |
 | Open broker manager | `Ctrl+B` |
 | Disconnect from broker after confirmation and offer to reconnect immediately or return to the broker manager | `Ctrl+X` |
 | Publish message | `Ctrl+S` |
