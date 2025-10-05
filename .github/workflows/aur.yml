@@ -16,11 +16,6 @@ jobs:
       VERSION: ${{ github.ref_name }}  # e.g. v0.1.0
 
     steps:
-      - name: Initialize pacman keyring
-        run: |
-          pacman-key --init
-          pacman-key --populate archlinux
-
       - name: Install deps
         run: |
           pacman -Syu --noconfirm --needed \
