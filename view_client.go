@@ -32,46 +32,38 @@ func (m *model) viewClient() string {
 	var parts []string
 	y := 1
 
-	if !m.layout.topics.collapsed {
-		topicsBox, topicBox, bounds := m.renderTopicsSection()
-		parts = append(parts, topicBox, topicsBox)
+	topicsBox, topicBox, bounds := m.renderTopicsSection()
+	parts = append(parts, topicBox, topicsBox)
 
-		m.ui.elemPos[idTopic] = y
-		y += lipgloss.Height(topicBox)
-		m.ui.elemPos[idTopics] = y
-		y += lipgloss.Height(topicsBox)
+	m.ui.elemPos[idTopic] = y
+	y += lipgloss.Height(topicBox)
+	m.ui.elemPos[idTopics] = y
+	y += lipgloss.Height(topicsBox)
 
-		m.topics.ChipBounds = make([]topics.ChipBound, len(bounds))
-		for i, b := range bounds {
-			m.topics.ChipBounds[i] = topics.ChipBound{
-				XPos:   b.XPos,
-				YPos:   b.YPos,
-				Width:  b.Width,
-				Height: b.Height,
-			}
+	m.topics.ChipBounds = make([]topics.ChipBound, len(bounds))
+	for i, b := range bounds {
+		m.topics.ChipBounds[i] = topics.ChipBound{
+			XPos:   b.XPos,
+			YPos:   b.YPos,
+			Width:  b.Width,
+			Height: b.Height,
 		}
-		startX := 2
-		startY := m.ui.elemPos[idTopics] + 1
-		for i := range m.topics.ChipBounds {
-			m.topics.ChipBounds[i].XPos += startX
-			m.topics.ChipBounds[i].YPos += startY
-		}
-	} else {
-		m.topics.ChipBounds = nil
+	}
+	startX := 2
+	startY := m.ui.elemPos[idTopics] + 1
+	for i := range m.topics.ChipBounds {
+		m.topics.ChipBounds[i].XPos += startX
+		m.topics.ChipBounds[i].YPos += startY
 	}
 
-	if !m.layout.message.collapsed {
-		messageBox := m.message.View()
-		parts = append(parts, messageBox)
-		m.ui.elemPos[idMessage] = y
-		y += lipgloss.Height(messageBox)
-	}
+	messageBox := m.message.View()
+	parts = append(parts, messageBox)
+	m.ui.elemPos[idMessage] = y
+	y += lipgloss.Height(messageBox)
 
-	if !m.layout.history.collapsed {
-		messagesBox := m.renderHistorySection()
-		parts = append(parts, messagesBox)
-		m.ui.elemPos[idHistory] = y
-	}
+	messagesBox := m.renderHistorySection()
+	parts = append(parts, messagesBox)
+	m.ui.elemPos[idHistory] = y
 
 	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
