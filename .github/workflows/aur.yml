@@ -60,10 +60,23 @@ jobs:
 
       - name: Clone AUR repo
         env:
-          GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
+          # Accept new host key without writing to ~/.ssh/known_hosts,
+          # use publickey only, force IPv4, and only use the loaded key.
+          GIT_SSH_COMMAND: >-
+            ssh -4
+            -o StrictHostKeyChecking=accept-new
+            -o UserKnownHostsFile=/dev/null
+            -o PreferredAuthentications=publickey
+            -o IdentitiesOnly=yes
           SSH_AUTH_SOCK: ${{ env.SSH_AUTH_SOCK }}
         run: |
-          git clone ssh://aur@aur.archlinux.org/${AUR_REPO}.git aur
+          # retry to dodge transient network blips
+          for i in 1 2 3 4 5; do
+            git clone ssh://aur@aur.archlinux.org/${AUR_REPO}.git aur && break
+            echo "clone failed (attempt $i), retrying..."
+            sleep $((i*2))
+          done
+
 
       - name: Commit & push to AUR
         env:
@@ -71,6 +84,13 @@ jobs:
           GIT_AUTHOR_EMAIL: ${{ secrets.AUR_COMMIT_EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
           GIT_COMMITTER_NAME:  ${{ secrets.AUR_COMMIT_NAME || 'github-actions[bot]' }}
           GIT_COMMITTER_EMAIL: ${{ secrets.AUR_COMMIT_EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
+          GIT_SSH_COMMAND: >-
+            ssh -4
+            -o StrictHostKeyChecking=accept-new
+            -o UserKnownHostsFile=/dev/null
+            -o PreferredAuthentications=publickey
+            -o IdentitiesOnly=yes
+          SSH_AUTH_SOCK: ${{ env.SSH_AUTH_SOCK }}
         run: |
           ver="${{ steps.v.outputs.version }}"
           cp PKGBUILD .SRCINFO aur/
@@ -83,4 +103,10 @@ jobs:
             exit 0
           fi
           git commit -m "Release ${PKGNAME} ${ver}"
-          git push origin HEAD:master
+          # retry push too
+          for i in 1 2 3 4 5; do
+            git push origin HEAD:master && break
+            echo "push failed (attempt $i), retrying..."
+            sleep $((i*2))
+          done
+
