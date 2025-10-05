@@ -47,6 +47,27 @@ jobs:
         run: |
           sudo -u build makepkg --printsrcinfo > .SRCINFO
 
+      - name: Debug SSH to AUR
+        continue-on-error: true
+        env:
+          SSH_AUTH_SOCK: ${{ env.SSH_AUTH_SOCK }}
+          GIT_SSH_COMMAND: >-
+            ssh -4
+            -o StrictHostKeyChecking=accept-new
+            -o UserKnownHostsFile=/dev/null
+            -o PreferredAuthentications=publickey
+            -o IdentitiesOnly=yes
+        run: |
+          set -x
+          # Show what SSH thinks about identities & basic connectivity
+          getent hosts aur.archlinux.org || true
+          # Try to talk to the server (won't run a shell, just handshake).
+          ssh -4 -vvv -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile=/dev/null \
+            -o PreferredAuthentications=publickey \
+            -o IdentitiesOnly=yes \
+            -T aur@aur.archlinux.org || true
+
       - name: Install AUR deploy key (no agent)
         run: |
           install -m 700 -d ~/.ssh
