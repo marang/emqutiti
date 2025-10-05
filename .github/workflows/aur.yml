@@ -16,12 +16,6 @@ jobs:
       VERSION: ${{ github.ref_name }}  # e.g. v0.1.0
 
     steps:
-      # (Optional but recommended in fresh Arch containers)
-      - name: Initialize pacman keyring
-        run: |
-          pacman-key --init
-          pacman-key --populate archlinux
-
       - name: Install deps
         run: |
           pacman -Syu --noconfirm --needed \
@@ -53,44 +47,30 @@ jobs:
         run: |
           sudo -u build makepkg --printsrcinfo > .SRCINFO
 
-      # Use the secret directly; avoid ssh-agent/socket flakiness in containers
-      - name: Install AUR deploy key
+      - name: Prepare SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AUR_PRIVATE_KEY }}
+
+      - name: Trust AUR host key
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "${AUR_PRIVATE_KEY}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-        env:
-          AUR_PRIVATE_KEY: ${{ secrets.AUR_PRIVATE_KEY }}
+          ssh-keyscan -t ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
 
-      # IMPORTANT: No ssh-keyscan. Accept new host key during first contact.
-      - name: Clone AUR repo (resilient)
+      - name: Clone AUR repo
         env:
-          GIT_SSH_COMMAND: >-
-            ssh -4
-            -o StrictHostKeyChecking=accept-new
-            -o UserKnownHostsFile=/dev/null
-            -o PreferredAuthentications=publickey
-            -o IdentitiesOnly=yes
+          GIT_SSH_COMMAND: "ssh -o StrictHostKeyChecking=accept-new"
+          SSH_AUTH_SOCK: ${{ env.SSH_AUTH_SOCK }}
         run: |
-          for i in $(seq 1 20); do
-            git clone ssh://aur@aur.archlinux.org/${AUR_REPO}.git aur && break
-            echo "clone failed (attempt $i), sleeping..."
-            sleep $((i*5))
-          done
-          test -d aur
+          git clone ssh://aur@aur.archlinux.org/${AUR_REPO}.git aur
 
-      - name: Commit & push to AUR (resilient)
+      - name: Commit & push to AUR
         env:
           GIT_AUTHOR_NAME:  ${{ secrets.AUR_COMMIT_NAME || 'github-actions[bot]' }}
           GIT_AUTHOR_EMAIL: ${{ secrets.AUR_COMMIT_EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
           GIT_COMMITTER_NAME:  ${{ secrets.AUR_COMMIT_NAME || 'github-actions[bot]' }}
           GIT_COMMITTER_EMAIL: ${{ secrets.AUR_COMMIT_EMAIL || 'github-actions[bot]@users.noreply.github.com' }}
-          GIT_SSH_COMMAND: >-
-            ssh -4
-            -o StrictHostKeyChecking=accept-new
-            -o UserKnownHostsFile=/dev/null
-            -o PreferredAuthentications=publickey
-            -o IdentitiesOnly=yes
         run: |
           ver="${{ steps.v.outputs.version }}"
           cp PKGBUILD .SRCINFO aur/
@@ -103,8 +83,4 @@ jobs:
             exit 0
           fi
           git commit -m "Release ${PKGNAME} ${ver}"
-          for i in $(seq 1 20); do
-            git push origin HEAD:master && break
-            echo "push failed (attempt $i), sleeping..."
-            sleep $((i*5))
-          done
+          git push origin HEAD:master
