@@ -1,8 +1,13 @@
 package emqutiti
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,10 +24,12 @@ import (
 
 type stubTraceStore struct {
 	traces.Store
-	hasData    bool
-	hasDataErr error
-	addCfg     traces.TracerConfig
-	addErr     error
+	hasData        bool
+	hasDataErr     error
+	addCfg         traces.TracerConfig
+	addErr         error
+	checkedProfile string
+	checkedKey     string
 }
 
 func (s *stubTraceStore) LoadTraces() map[string]traces.TracerConfig      { return nil }
@@ -33,8 +40,12 @@ func (s *stubTraceStore) AddTrace(cfg traces.TracerConfig) error {
 }
 func (s *stubTraceStore) RemoveTrace(string) error                                { return nil }
 func (s *stubTraceStore) Messages(string, string) ([]traces.TracerMessage, error) { return nil, nil }
-func (s *stubTraceStore) HasData(string, string) (bool, error)                    { return s.hasData, s.hasDataErr }
-func (s *stubTraceStore) ClearData(string, string) error                          { return nil }
+func (s *stubTraceStore) HasData(profile, key string) (bool, error) {
+	s.checkedProfile = profile
+	s.checkedKey = key
+	return s.hasData, s.hasDataErr
+}
+func (s *stubTraceStore) ClearData(string, string) error { return nil }
 func (s *stubTraceStore) LoadCounts(string, string, []string) (map[string]int, error) {
 	return nil, nil
 }
@@ -65,6 +76,21 @@ func (s *stubHistoryStore) Close() error {
 	return nil
 }
 
+func writeTempConfig(t *testing.T, contents string) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "config-*.toml")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	if _, err := f.WriteString(contents); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return f.Name()
+}
+
 func TestRunTrace(t *testing.T) {
 	st := &stubTraceStore{}
 	called := false
@@ -89,6 +115,47 @@ func TestRunTrace(t *testing.T) {
 	}
 	if st.addCfg.Key != "k" || st.addCfg.Profile != "p" {
 		t.Fatalf("unexpected cfg: %#v", st.addCfg)
+	}
+}
+
+func TestRunTracePromptsForProfile(t *testing.T) {
+	st := &stubTraceStore{}
+	called := false
+	d := &appDeps{
+		traceKey:    "k",
+		traceTopics: "topic",
+		traceStore:  st,
+		selectProfile: func(r io.Reader, w io.Writer, file string) (string, error) {
+			if file != "cfg" {
+				t.Fatalf("unexpected file %q", file)
+			}
+			if r == nil || w == nil {
+				t.Fatalf("nil reader/writer provided")
+			}
+			return "chosen", nil
+		},
+		profileIn:  strings.NewReader(""),
+		profileOut: io.Discard,
+		configFile: "cfg",
+		traceRun: func(ctx context.Context, key, topics, profile, start, end string) error {
+			called = true
+			if profile != "chosen" {
+				t.Fatalf("expected profile 'chosen', got %q", profile)
+			}
+			return nil
+		},
+	}
+	if err := runTrace(d); err != nil {
+		t.Fatalf("runTrace error: %v", err)
+	}
+	if !called {
+		t.Fatalf("traceRun not called")
+	}
+	if st.addCfg.Profile != "chosen" {
+		t.Fatalf("expected stored profile 'chosen', got %q", st.addCfg.Profile)
+	}
+	if st.checkedProfile != "chosen" || st.checkedKey != "k" {
+		t.Fatalf("unexpected HasData args %q %q", st.checkedProfile, st.checkedKey)
 	}
 }
 
@@ -220,6 +287,48 @@ func TestRunImport(t *testing.T) {
 	}
 }
 
+func TestListProfiles(t *testing.T) {
+	cfgPath := writeTempConfig(t, `[[profiles]]
+name = "local"
+schema = "mqtt"
+host = "localhost"
+port = 1883
+
+[[profiles]]
+name = "remote"
+schema = "ssl"
+host = "example.com"
+port = 8883
+`)
+	var buf bytes.Buffer
+	if err := listProfiles(&buf, cfgPath); err != nil {
+		t.Fatalf("listProfiles returned error: %v", err)
+	}
+	want := "local\tmqtt://localhost:1883\nremote\tssl://example.com:8883\n"
+	if got := buf.String(); got != want {
+		t.Fatalf("unexpected output:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestListProfilesEmpty(t *testing.T) {
+	cfgPath := writeTempConfig(t, "")
+	var buf bytes.Buffer
+	if err := listProfiles(&buf, cfgPath); err != nil {
+		t.Fatalf("listProfiles returned error: %v", err)
+	}
+	want := "No profiles configured.\n"
+	if got := buf.String(); got != want {
+		t.Fatalf("unexpected output:\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestListProfilesMissingFile(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "missing.toml")
+	if err := listProfiles(io.Discard, missing); err == nil {
+		t.Fatalf("expected error when config file is missing")
+	}
+}
+
 func TestRunUI(t *testing.T) {
 	st := &stubHistoryStore{}
 	d := &appDeps{
@@ -238,5 +347,53 @@ func TestRunUI(t *testing.T) {
 	}
 	if !st.closed {
 		t.Fatalf("store not closed")
+	}
+}
+
+func TestPromptProfileSelectionSingle(t *testing.T) {
+	cfgPath := writeTempConfig(t, `[[profiles]]
+name = "local"
+schema = "mqtt"
+host = "localhost"
+port = 1883
+`)
+	var out bytes.Buffer
+	name, err := promptProfileSelection(strings.NewReader("\n"), &out, cfgPath)
+	if err != nil {
+		t.Fatalf("promptProfileSelection error: %v", err)
+	}
+	if name != "local" {
+		t.Fatalf("expected local, got %q", name)
+	}
+	if !strings.Contains(out.String(), "Using profile \"local\"") {
+		t.Fatalf("expected confirmation in output, got %q", out.String())
+	}
+}
+
+func TestPromptProfileSelectionMultiple(t *testing.T) {
+	cfgPath := writeTempConfig(t, `default_profile = "remote"
+[[profiles]]
+name = "local"
+schema = "mqtt"
+host = "localhost"
+port = 1883
+
+[[profiles]]
+name = "remote"
+schema = "ssl"
+host = "example.com"
+port = 8883
+`)
+	input := strings.NewReader("2\n")
+	var out bytes.Buffer
+	name, err := promptProfileSelection(input, &out, cfgPath)
+	if err != nil {
+		t.Fatalf("promptProfileSelection error: %v", err)
+	}
+	if name != "remote" {
+		t.Fatalf("expected remote, got %q", name)
+	}
+	if !strings.Contains(out.String(), "Select a connection profile:") {
+		t.Fatalf("expected prompt output, got %q", out.String())
 	}
 }

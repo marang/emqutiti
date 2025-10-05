@@ -1,9 +1,13 @@
 package emqutiti
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -64,6 +68,10 @@ type appDeps struct {
 	newImporter   func(steps.Publisher, string) *importer.Model
 	initialModel  func(*connections.Connections) (*model, error)
 	newProgram    func(tea.Model, ...tea.ProgramOption) program
+	selectProfile func(io.Reader, io.Writer, string) (string, error)
+	profileIn     io.Reader
+	profileOut    io.Writer
+	configFile    string
 
 	runners map[string]ModeRunner
 
@@ -82,6 +90,9 @@ func newAppDeps() *appDeps {
 		newProgram: func(m tea.Model, opts ...tea.ProgramOption) program {
 			return tea.NewProgram(m, opts...)
 		},
+		selectProfile: promptProfileSelection,
+		profileIn:     os.Stdin,
+		profileOut:    os.Stdout,
 	}
 	d.runners = map[string]ModeRunner{
 		"trace":  runTrace,
@@ -93,6 +104,12 @@ func newAppDeps() *appDeps {
 
 // Main sets up dependencies and launches the UI or other modes based on cfg.
 func Main(c cfg.AppConfig) {
+	if c.ListProfiles {
+		if err := listProfiles(os.Stdout, ""); err != nil {
+			log.Fatalf("Error listing profiles: %v", err)
+		}
+		return
+	}
 	d := newAppDeps()
 	runMain(d, c)
 }
@@ -135,12 +152,111 @@ func runMain(d *appDeps, c cfg.AppConfig) {
 	}
 }
 
+func listProfiles(w io.Writer, file string) error {
+	cfg, err := connections.LoadConfig(file)
+	if err != nil {
+		return err
+	}
+	if len(cfg.Profiles) == 0 {
+		_, err := fmt.Fprintln(w, "No profiles configured.")
+		return err
+	}
+	for _, p := range cfg.Profiles {
+		if _, err := fmt.Fprintf(w, "%s\t%s\n", p.Name, p.BrokerURL()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func promptProfileSelection(r io.Reader, w io.Writer, file string) (string, error) {
+	cfg, err := connections.LoadConfig(file)
+	if err != nil {
+		return "", err
+	}
+	if len(cfg.Profiles) == 0 {
+		return "", fmt.Errorf("no connection profiles configured")
+	}
+	if len(cfg.Profiles) == 1 {
+		if _, err := fmt.Fprintf(w, "Using profile %q (%s)\n", cfg.Profiles[0].Name, cfg.Profiles[0].BrokerURL()); err != nil {
+			return "", err
+		}
+		return cfg.Profiles[0].Name, nil
+	}
+	defIdx := -1
+	if cfg.DefaultProfile != "" {
+		for i := range cfg.Profiles {
+			if cfg.Profiles[i].Name == cfg.DefaultProfile {
+				defIdx = i
+				break
+			}
+		}
+	}
+	fmt.Fprintln(w, "Select a connection profile:")
+	for i, p := range cfg.Profiles {
+		marker := " "
+		if i == defIdx {
+			marker = "*"
+		}
+		if _, err := fmt.Fprintf(w, "  %s %d) %s\t%s\n", marker, i+1, p.Name, p.BrokerURL()); err != nil {
+			return "", err
+		}
+	}
+	if defIdx >= 0 {
+		fmt.Fprintf(w, "Press Enter to use the default (%s).\n", cfg.Profiles[defIdx].Name)
+	} else {
+		fmt.Fprintf(w, "Press Enter to use the first profile (%s).\n", cfg.Profiles[0].Name)
+	}
+	fmt.Fprint(w, "> ")
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		choice := strings.TrimSpace(scanner.Text())
+		if choice == "" {
+			if defIdx >= 0 {
+				return cfg.Profiles[defIdx].Name, nil
+			}
+			return cfg.Profiles[0].Name, nil
+		}
+		if idx, err := strconv.Atoi(choice); err == nil {
+			idx--
+			if idx >= 0 && idx < len(cfg.Profiles) {
+				return cfg.Profiles[idx].Name, nil
+			}
+		} else {
+			for _, p := range cfg.Profiles {
+				if p.Name == choice {
+					return p.Name, nil
+				}
+			}
+		}
+		fmt.Fprintln(w, "Invalid selection. Enter a number or profile name:")
+		fmt.Fprint(w, "> ")
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("profile selection aborted")
+}
+
 func runTrace(d *appDeps) error {
 	ctx := context.Background()
 	if d.timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, d.timeout)
 		defer cancel()
+	}
+	if d.profileName == "" {
+		if d.selectProfile == nil {
+			return fmt.Errorf("no profile selector configured")
+		}
+		name, err := d.selectProfile(d.profileIn, d.profileOut, d.configFile)
+		if err != nil {
+			return err
+		}
+		if name == "" {
+			return fmt.Errorf("no connection profile selected")
+		}
+		d.profileName = name
 	}
 	tlist := strings.Split(d.traceTopics, ",")
 	for i := range tlist {

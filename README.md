@@ -62,6 +62,7 @@ General
 
 - `-i, --import FILE` Launch import wizard with optional file path (e.g., `-i data.csv`)
 - `-p, --profile NAME` Connection profile name to use (e.g., `-p local`)
+- `-l, --list-profiles` List available connection profiles and exit
 
 Trace
 
@@ -69,6 +70,7 @@ Trace
 - `--topics LIST` Comma-separated topics to trace (e.g., `--topics "sensors/#"`)
 - `--start TIME` Optional RFC3339 start time (e.g., `--start "2025-08-05T11:47:00Z"`)
 - `--end TIME` Optional RFC3339 end time (e.g., `--end "2025-08-05T11:49:00Z"`)
+- omit `-p/--profile` with `--trace` to choose a connection profile interactively before the trace starts
 
 Times must be RFC3339 formatted.
 
