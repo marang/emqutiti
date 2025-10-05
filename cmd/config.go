@@ -8,13 +8,14 @@ import (
 )
 
 type AppConfig struct {
-	ImportFile  string
-	ProfileName string
-	TraceKey    string
-	TraceTopics string
-	TraceStart  string
-	TraceEnd    string
-	Timeout     time.Duration
+	ImportFile   string
+	ProfileName  string
+	TraceKey     string
+	TraceTopics  string
+	TraceStart   string
+	TraceEnd     string
+	Timeout      time.Duration
+	ListProfiles bool
 }
 
 func ParseFlags() AppConfig {
@@ -29,12 +30,15 @@ func ParseFlags() AppConfig {
 	fs.StringVar(&cfg.TraceStart, "start", "", "Optional RFC3339 trace start time")
 	fs.StringVar(&cfg.TraceEnd, "end", "", "Optional RFC3339 trace end time")
 	fs.DurationVar(&cfg.Timeout, "timeout", 0, "Optional overall runtime limit (e.g., 30s)")
+	fs.BoolVar(&cfg.ListProfiles, "list-profiles", false, "List available connection profiles and exit")
+	fs.BoolVar(&cfg.ListProfiles, "l", false, "(shorthand)")
 	fs.Usage = func() {
 		w := fs.Output()
 		fmt.Fprintf(w, "Usage: %s [flags]\n\n", os.Args[0])
 		fmt.Fprintln(w, "General:")
 		fmt.Fprintln(w, "  -i, --import FILE     Launch import wizard with optional file path (e.g., -i data.csv)")
 		fmt.Fprintln(w, "  -p, --profile NAME    Connection profile name to use (e.g., -p local)")
+		fmt.Fprintln(w, "  -l, --list-profiles   List available connection profiles and exit")
 		fmt.Fprintln(w, "")
 		fmt.Fprintln(w, "Trace:")
 		fmt.Fprintln(w, "      --trace KEY       Trace key name to store messages (e.g., --trace run1)")

@@ -88,6 +88,7 @@ Retained messages are labeled "(retained)".
 
 - `-i, --import FILE` Launch CSV import wizard with optional file path (e.g., `-i data.csv`)
 - `-p, --profile NAME` Connection profile name to use (e.g., `-p local`)
+- `-l, --list-profiles` List available connection profiles and exit
 
 **Trace**
 
@@ -95,3 +96,4 @@ Retained messages are labeled "(retained)".
 - `--topics LIST` Comma-separated topics to trace (e.g., `--topics "sensors/#"`)
 - `--start TIME` Optional RFC3339 start time (e.g., `--start "2025-08-05T11:47:00Z"`)
 - `--end TIME` Optional RFC3339 end time (e.g., `--end "2025-08-05T11:49:00Z"`)
+- Omit `-p/--profile` when tracing to pick a connection interactively before starting
