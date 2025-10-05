@@ -91,16 +91,16 @@ func (m *model) handleResizeDownKey() tea.Cmd {
 // handleModeSwitchKey switches application modes for special key combos.
 func (m *model) handleModeSwitchKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
-	case constants.KeyCtrl1:
+	case constants.KeyCtrlAlt1, constants.KeyCtrlAltQ:
 		m.layout.topics.collapsed = !m.layout.topics.collapsed
 		return nil
-	case constants.KeyCtrl2:
+	case constants.KeyCtrlAlt2, constants.KeyCtrlAltR:
 		m.layout.message.collapsed = !m.layout.message.collapsed
 		if !m.layout.message.collapsed {
 			m.message.Input().SetHeight(m.layout.message.height)
 		}
 		return nil
-	case constants.KeyCtrl3:
+	case constants.KeyCtrlAlt3, constants.KeyCtrlAltS:
 		m.layout.history.collapsed = !m.layout.history.collapsed
 		if !m.layout.history.collapsed {
 			m.history.List().SetSize(m.ui.width-4, m.layout.history.height)
@@ -129,7 +129,7 @@ func (m *model) handleModeSwitchKey(msg tea.KeyMsg) tea.Cmd {
 	case constants.KeyCtrlP:
 		m.payloads.List().SetSize(m.ui.width-4, m.ui.height-4)
 		return m.SetMode(constants.ModePayloads)
-	case constants.KeyCtrlR:
+	case constants.KeyAltR:
 		m.traces.List().SetSize(m.ui.width-4, m.ui.height-4)
 		return m.SetMode(constants.ModeTracer)
 	case constants.KeyCtrlL:

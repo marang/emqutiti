@@ -7,16 +7,18 @@
 | Ctrl+D | Exit the program |
 | Ctrl+P | Manage payloads |
 | Ctrl+T | Manage topics |
-| Ctrl+R | Manage traces |
+| Alt+R | Manage traces |
 | Ctrl+B | Open broker manager |
 | Ctrl+X | Disconnect from broker after confirmation; offers immediate reconnect or opens broker manager |
 | Ctrl+S | Publish message |
 | Ctrl+E | Publish retained message |
 | Ctrl+L | Open log viewer |
 | Ctrl+Shift+Up / Ctrl+Shift+Down | Resize panels |
-| Ctrl+1 | Toggle topics pane |
-| Ctrl+2 | Toggle message pane |
-| Ctrl+3 | Toggle history pane |
+| Ctrl+Alt+1 / Ctrl+Alt+Q | Toggle topics pane |
+| Ctrl+Alt+2 / Ctrl+Alt+R | Toggle message pane |
+| Ctrl+Alt+3 / Ctrl+Alt+S | Toggle history pane |
+
+Use either the number or letter variants if one set is intercepted by your terminal or window manager.
 
 ## Navigation
 
