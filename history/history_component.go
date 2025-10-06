@@ -91,6 +91,12 @@ func (h *Component) UpdateFilter(msg tea.Msg) tea.Cmd {
 			cmd := tea.Batch(h.m.SetMode(h.m.PreviousMode()), h.m.SetFocus(ID))
 			return cmd
 		case constants.KeyEnter:
+			form, err := h.filterForm.Validate()
+			if err != nil {
+				h.filterForm = &form
+				return nil
+			}
+			h.filterForm = &form
 			h.showArchived = h.filterForm.archived.Bool()
 			q := h.filterForm.query()
 			topics, start, end, payload := ParseQuery(q)

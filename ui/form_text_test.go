@@ -46,3 +46,33 @@ func TestSuggestFieldConsumesJK(t *testing.T) {
 		t.Fatalf("field value=%q want=j", sf.Value())
 	}
 }
+
+func TestRFC3339FieldSanitisesInput(t *testing.T) {
+	tf := NewTextField("", "", WithRFC3339())
+	tf.Focus()
+
+	inputs := []tea.KeyMsg{
+		{Type: tea.KeyRunes, Runes: []rune("2025-12-")},
+		{Type: tea.KeyRunes, Runes: []rune("22t14:00:00")},
+		{Type: tea.KeyRunes, Runes: []rune(".12z")},
+		{Type: tea.KeyRunes, Runes: []rune("oops")},
+	}
+	for _, msg := range inputs {
+		tf.Update(msg)
+	}
+
+	if got, want := tf.Value(), "2025-12-22T14:00:00.12Z"; got != want {
+		t.Fatalf("value=%q want=%q", got, want)
+	}
+
+	if err := tf.Err(); err != nil {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestRFC3339FieldSetValueFiltersInvalidRunes(t *testing.T) {
+	tf := NewTextField("2025-06zz", "", WithRFC3339())
+	if got, want := tf.Value(), "2025-06"; got != want {
+		t.Fatalf("value=%q want=%q", got, want)
+	}
+}

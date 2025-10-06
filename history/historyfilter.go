@@ -19,6 +19,8 @@ const (
 	idxFilterArchived
 )
 
+const dateFormatPlaceholder = "YYYY-MM-DDTHH:MM:SSZ"
+
 // historyFilterForm captures filter inputs for history searches.
 type historyFilterForm struct {
 	ui.Form
@@ -27,6 +29,7 @@ type historyFilterForm struct {
 	start    *ui.TextField
 	end      *ui.TextField
 	archived *ui.CheckField
+	errMsg   string
 }
 
 // Topic returns the topic field.
@@ -54,12 +57,12 @@ func newHistoryFilterForm(topics []string, topic, payload string, start, end tim
 	pf := ui.NewTextField("", "text contains")
 	pf.SetValue(payload)
 
-	sf := ui.NewTextField("", "start (RFC3339)")
+	sf := ui.NewTextField("", fmt.Sprintf("Start (%s)", dateFormatPlaceholder), ui.WithRFC3339())
 	if !start.IsZero() {
 		sf.SetValue(start.Format(time.RFC3339))
 	}
 
-	ef := ui.NewTextField("", "end (RFC3339)")
+	ef := ui.NewTextField("", fmt.Sprintf("End (%s)", dateFormatPlaceholder), ui.WithRFC3339())
 	if !end.IsZero() {
 		ef.SetValue(end.Format(time.RFC3339))
 	}
@@ -86,6 +89,7 @@ func NewFilterForm(topics []string, topic, payload string, start, end time.Time,
 // Update handles focus cycling and topic completion.
 func (f historyFilterForm) Update(msg tea.Msg) (historyFilterForm, tea.Cmd) {
 	var cmd tea.Cmd
+	f.errMsg = ""
 	switch m := msg.(type) {
 	case tea.KeyMsg:
 		if c, ok := f.Fields[f.Focus].(ui.KeyConsumer); ok && c.WantsKey(m) {
@@ -127,7 +131,35 @@ func (f historyFilterForm) View() string {
 		"",
 		fmt.Sprintf("Archived: %s", f.archived.View()),
 	)
+	if f.errMsg != "" {
+		lines = append(lines, "", ui.ErrorStyle.Render(f.errMsg))
+	}
 	return strings.Join(lines, "\n")
+}
+
+func (f historyFilterForm) Validate() (historyFilterForm, error) {
+	startTime, err := ui.ParseRFC3339(f.start.Value())
+	if err != nil {
+		f.errMsg = fmt.Sprintf("Start %s", err.Error())
+		return f, err
+	}
+	endTime, err := ui.ParseRFC3339(f.end.Value())
+	if err != nil {
+		f.errMsg = fmt.Sprintf("End %s", err.Error())
+		return f, err
+	}
+	if !startTime.IsZero() {
+		f.start.SetValue(startTime.Format(time.RFC3339))
+	}
+	if !endTime.IsZero() {
+		f.end.SetValue(endTime.Format(time.RFC3339))
+	}
+	if !startTime.IsZero() && !endTime.IsZero() && startTime.After(endTime) {
+		err := fmt.Errorf("End must be after start")
+		f.errMsg = err.Error()
+		return f, err
+	}
+	return f, nil
 }
 
 // query builds a history search string.

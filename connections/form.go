@@ -118,7 +118,7 @@ func NewForm(p Profile, idx int) Form {
 			}
 			fields[i] = sf
 		case ftPassword:
-			fields[i] = ui.NewTextField(strVal, placeholder, true)
+			fields[i] = ui.NewTextField(strVal, placeholder, ui.WithMask())
 		default:
 			fields[i] = ui.NewTextField(strVal, placeholder)
 		}

@@ -312,6 +312,12 @@ func (t *Component) UpdateForm(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 		if km.String() == constants.KeyEnter {
+			form, err := t.form.Validate()
+			if err != nil {
+				t.form = &form
+				return nil
+			}
+			t.form = &form
 			cfg := t.form.Config()
 			if cfg.Key == "" || len(cfg.Topics) == 0 || cfg.Profile == "" {
 				t.form.errMsg = "key, profile and topics required"

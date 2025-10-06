@@ -1,6 +1,7 @@
 package traces
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -31,8 +32,8 @@ func newTraceForm(profiles []string, current string, topics []string) traceForm 
 		profileField = &ui.SelectField{}
 	}
 	topicsField := ui.NewTextField(strings.Join(topics, ","), "Topics")
-	startField := ui.NewTextField("", "2006-01-02T15:04:05Z")
-	endField := ui.NewTextField("", "2006-01-02T15:04:05Z")
+	startField := ui.NewTextField("", "Start (YYYY-MM-DDTHH:MM:SSZ)", ui.WithRFC3339())
+	endField := ui.NewTextField("", "End (YYYY-MM-DDTHH:MM:SSZ)", ui.WithRFC3339())
 	fields := []ui.Field{keyField, profileField, topicsField, startField, endField}
 	tf := traceForm{Form: ui.Form{Fields: fields, Focus: 0}}
 	if err != nil {
@@ -63,6 +64,38 @@ func (f traceForm) Update(msg tea.Msg) (traceForm, tea.Cmd) {
 		cmd = f.Fields[f.Focus].Update(msg)
 	}
 	return f, cmd
+}
+
+func (f traceForm) Validate() (traceForm, error) {
+	f.errMsg = ""
+	startStr := strings.TrimSpace(f.Fields[idxTraceStart].Value())
+	endStr := strings.TrimSpace(f.Fields[idxTraceEnd].Value())
+	startTime, err := ui.ParseRFC3339(startStr)
+	if err != nil {
+		f.errMsg = fmt.Sprintf("start %s", err.Error())
+		return f, err
+	}
+	endTime, err := ui.ParseRFC3339(endStr)
+	if err != nil {
+		f.errMsg = fmt.Sprintf("end %s", err.Error())
+		return f, err
+	}
+	if !startTime.IsZero() {
+		if tf, ok := f.Fields[idxTraceStart].(*ui.TextField); ok {
+			tf.SetValue(startTime.Format(time.RFC3339))
+		}
+	}
+	if !endTime.IsZero() {
+		if tf, ok := f.Fields[idxTraceEnd].(*ui.TextField); ok {
+			tf.SetValue(endTime.Format(time.RFC3339))
+		}
+	}
+	if !startTime.IsZero() && !endTime.IsZero() && startTime.After(endTime) {
+		err := fmt.Errorf("end must be after start")
+		f.errMsg = err.Error()
+		return f, err
+	}
+	return f, nil
 }
 
 // View renders the form interface.
