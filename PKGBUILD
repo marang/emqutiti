@@ -12,7 +12,7 @@ sha256sums=('SKIP')
 
 build() {
   cd "emqutiti-$pkgver"
-  go build -o emqutiti ./cmd/emqutiti
+  go build -trimpath -ldflags="-s -w -X github.com/marang/emqutiti/cmd.version=$pkgver" -o emqutiti ./cmd/emqutiti
 }
 
 package() {
@@ -20,4 +20,3 @@ package() {
   install -Dm755 emqutiti "$pkgdir/usr/bin/emqutiti"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
-

@@ -104,6 +104,10 @@ func newAppDeps() *appDeps {
 
 // Main sets up dependencies and launches the UI or other modes based on cfg.
 func Main(c cfg.AppConfig) {
+	if c.ShowVersion {
+		fmt.Println(cfg.Version())
+		return
+	}
 	if c.ListProfiles {
 		if err := listProfiles(os.Stdout, ""); err != nil {
 			log.Fatalf("Error listing profiles: %v", err)

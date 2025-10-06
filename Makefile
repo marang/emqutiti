@@ -1,10 +1,12 @@
 PROTO_FILES := proxy/proxy.proto
 PROTOC ?= protoc
+VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
+LDFLAGS := -s -w -X github.com/marang/emqutiti/cmd.version=$(VERSION)
 
 .PHONY: build test vet proto tape
 
 build:
-	go build -trimpath -ldflags="-s -w" -o emqutiti ./cmd/emqutiti
+	go build -trimpath -ldflags="$(LDFLAGS)" -o emqutiti ./cmd/emqutiti
 
 vet:
 	go vet ./...

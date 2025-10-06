@@ -16,6 +16,14 @@ type AppConfig struct {
 	TraceEnd     string
 	Timeout      time.Duration
 	ListProfiles bool
+	ShowVersion  bool
+}
+
+var version = "dev"
+
+// Version returns the application version injected at build time.
+func Version() string {
+	return version
 }
 
 func ParseFlags() AppConfig {
@@ -32,6 +40,8 @@ func ParseFlags() AppConfig {
 	fs.DurationVar(&cfg.Timeout, "timeout", 0, "Optional overall runtime limit (e.g., 30s)")
 	fs.BoolVar(&cfg.ListProfiles, "list-profiles", false, "List available connection profiles and exit")
 	fs.BoolVar(&cfg.ListProfiles, "l", false, "(shorthand)")
+	fs.BoolVar(&cfg.ShowVersion, "version", false, "Print version and exit")
+	fs.BoolVar(&cfg.ShowVersion, "v", false, "(shorthand)")
 	fs.Usage = func() {
 		w := fs.Output()
 		fmt.Fprintf(w, "Usage: %s [flags]\n\n", os.Args[0])
@@ -39,6 +49,7 @@ func ParseFlags() AppConfig {
 		fmt.Fprintln(w, "  -i, --import FILE     Launch import wizard with optional file path (e.g., -i data.csv)")
 		fmt.Fprintln(w, "  -p, --profile NAME    Connection profile name to use (e.g., -p local)")
 		fmt.Fprintln(w, "  -l, --list-profiles   List available connection profiles and exit")
+		fmt.Fprintln(w, "  -v, --version         Print version information and exit")
 		fmt.Fprintln(w, "")
 		fmt.Fprintln(w, "Trace:")
 		fmt.Fprintln(w, "      --trace KEY       Trace key name to store messages (e.g., --trace run1)")
