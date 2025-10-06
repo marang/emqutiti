@@ -32,8 +32,8 @@ func newTraceForm(profiles []string, current string, topics []string) traceForm 
 		profileField = &ui.SelectField{}
 	}
 	topicsField := ui.NewTextField(strings.Join(topics, ","), "Topics")
-	startField := ui.NewTextField("", "Start (YYYY-MM-DDTHH:MM:SSZ)", ui.WithRFC3339())
-	endField := ui.NewTextField("", "End (YYYY-MM-DDTHH:MM:SSZ)", ui.WithRFC3339())
+	startField := ui.NewTextField("", "Start (YYYY-MM-DDTHH:MM:SSZ or +HH:MM)", ui.WithRFC3339())
+	endField := ui.NewTextField("", "End (YYYY-MM-DDTHH:MM:SSZ or +HH:MM)", ui.WithRFC3339())
 	fields := []ui.Field{keyField, profileField, topicsField, startField, endField}
 	tf := traceForm{Form: ui.Form{Fields: fields, Focus: 0}}
 	if err != nil {

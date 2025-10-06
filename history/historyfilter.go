@@ -19,7 +19,7 @@ const (
 	idxFilterArchived
 )
 
-const dateFormatPlaceholder = "YYYY-MM-DDTHH:MM:SSZ"
+const dateFormatPlaceholder = "YYYY-MM-DDTHH:MM:SSZ or +HH:MM"
 
 // historyFilterForm captures filter inputs for history searches.
 type historyFilterForm struct {

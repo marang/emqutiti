@@ -7,10 +7,14 @@ import (
 
 // DataDir returns the base data directory for the given profile.
 // If the profile is empty, "default" is used.
-// The directory is placed under ~/.config/emqutiti/data.
+// The directory is placed under ~/.config/emqutiti/data by default.
+// When EMQUTITI_HOME is set, that directory is used as the base instead.
 func DataDir(profile string) string {
 	if profile == "" {
 		profile = "default"
+	}
+	if override := os.Getenv("EMQUTITI_HOME"); override != "" {
+		return filepath.Join(override, "data", profile)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {

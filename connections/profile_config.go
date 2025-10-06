@@ -14,8 +14,13 @@ type Config struct {
 	Profiles       []Profile `toml:"profiles"`
 }
 
-// DefaultUserConfigFile returns ~/.config/emqutiti/config.toml.
+// DefaultUserConfigFile returns the location of the user config file.
+// It honours EMQUTITI_HOME when set, otherwise defaults to
+// ~/.config/emqutiti/config.toml.
 func DefaultUserConfigFile() (string, error) {
+	if override := os.Getenv("EMQUTITI_HOME"); override != "" {
+		return filepath.Join(override, "config.toml"), nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
