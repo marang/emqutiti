@@ -1,0 +1,14 @@
+Source: emqutiti
+Section: utils
+Priority: optional
+Maintainer: Emqutiti Maintainers <maintainers@example.com>
+Build-Depends: debhelper-compat (= 13), golang-any (>= 2:1.21~)
+Standards-Version: 4.6.2
+Homepage: https://github.com/marang/emqutiti
+Rules-Requires-Root: no
+
+Package: emqutiti
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Terminal MQTT client
+ Emqutiti is a polished MQTT client for the terminal using Bubble Tea.
