@@ -291,8 +291,8 @@ func (c *Component) ToggleTopic(index int) tea.Cmd {
 		return nil
 	}
 	name := c.Items[index].Name
-	t := &c.Items[index]
-	t.Subscribed = !t.Subscribed
+	subscribed := !c.Items[index].Subscribed
+	c.Items[index].Subscribed = subscribed
 	c.SortTopics()
 	c.RebuildActiveTopicList()
 	for i, it := range c.Items {
@@ -301,9 +301,7 @@ func (c *Component) ToggleTopic(index int) tea.Cmd {
 			break
 		}
 	}
-	topic := t.Name
-	sub := t.Subscribed
-	return func() tea.Msg { return ToggleMsg{Topic: topic, Subscribed: sub} }
+	return func() tea.Msg { return ToggleMsg{Topic: name, Subscribed: subscribed} }
 }
 
 // TogglePublish toggles the publish flag of the topic at index.
@@ -336,9 +334,9 @@ func (c *Component) RemoveTopic(index int) tea.Cmd {
 
 // TopicAtPosition returns the index of the topic chip at the provided coordinates or -1.
 func (c *Component) TopicAtPosition(x, y int) int {
-	for i, b := range c.ChipBounds {
+	for _, b := range c.ChipBounds {
 		if x >= b.XPos && x < b.XPos+b.Width && y >= b.YPos && y < b.YPos+b.Height {
-			return i
+			return b.Index
 		}
 	}
 	return -1

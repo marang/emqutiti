@@ -15,7 +15,7 @@ func LayoutChips(chips []string, width int) ([]string, []ChipBound) {
 	curX := 0
 	rowTop := 0
 	rowHeight := 0
-	for _, c := range chips {
+	for i, c := range chips {
 		cw := lipgloss.Width(c)
 		ch := lipgloss.Height(c)
 		if curX+cw > width && len(row) > 0 {
@@ -28,7 +28,7 @@ func LayoutChips(chips []string, width int) ([]string, []ChipBound) {
 			rowHeight = 0
 		}
 		row = append(row, c)
-		bounds = append(bounds, ChipBound{XPos: curX, YPos: rowTop, Width: cw, Height: ch})
+		bounds = append(bounds, ChipBound{XPos: curX, YPos: rowTop, Width: cw, Height: ch, Index: i})
 		curX += cw
 		if ch > rowHeight {
 			rowHeight = ch

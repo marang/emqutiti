@@ -47,6 +47,7 @@ func (m *model) viewClient() string {
 			YPos:   b.YPos,
 			Width:  b.Width,
 			Height: b.Height,
+			Index:  b.Index,
 		}
 	}
 	startX := 2
