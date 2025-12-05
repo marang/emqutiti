@@ -12,14 +12,15 @@ func initUI(order []string) uiState {
 		fm[id] = i
 	}
 	return uiState{
-		focusIndex: 0,
-		modeStack:  []constants.AppMode{constants.ModeClient},
-		width:      0,
-		height:     0,
-		viewport:   vp,
-		elemPos:    map[string]int{},
-		focusOrder: order,
-		focusMap:   fm,
+		focusIndex:  0,
+		modeStack:   []constants.AppMode{constants.ModeClient},
+		width:       0,
+		height:      0,
+		viewport:    vp,
+		elemPos:     map[string]int{},
+		focusOrder:  order,
+		focusMap:    fm,
+		focusMemory: map[constants.AppMode]int{},
 	}
 }
 

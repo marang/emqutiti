@@ -1,6 +1,7 @@
 package connections
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -118,6 +119,19 @@ func TestSavePasswordToKeyring(t *testing.T) {
 	}
 }
 
+func TestDeletePasswordFromKeyring(t *testing.T) {
+	keyring.MockInit()
+	if err := savePasswordToKeyring("svc", "user", "pw"); err != nil {
+		t.Fatalf("savePasswordToKeyring: %v", err)
+	}
+	if err := deletePasswordFromKeyring("svc", "user"); err != nil {
+		t.Fatalf("deletePasswordFromKeyring: %v", err)
+	}
+	if _, err := keyring.Get("emqutiti-svc", "user"); err == nil || !errors.Is(err, keyring.ErrNotFound) {
+		t.Fatalf("expected missing keyring entry, got %v", err)
+	}
+}
+
 func TestSaveConfig(t *testing.T) {
 	dir := t.TempDir()
 	oldHome := os.Getenv("HOME")
@@ -195,6 +209,38 @@ func TestPersistProfileChange(t *testing.T) {
 	}
 }
 
+func TestPersistProfileChangeWithoutPassword(t *testing.T) {
+	keyring.MockInit()
+	dir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", dir)
+	defer os.Setenv("HOME", oldHome)
+
+	profiles := []Profile{}
+	p := Profile{Name: "test", Username: "user"}
+	if err := persistProfileChange(&profiles, "test", p, -1); err != nil {
+		t.Fatalf("persistProfileChange: %v", err)
+	}
+	if len(profiles) != 1 {
+		t.Fatalf("expected 1 profile, got %d", len(profiles))
+	}
+	if profiles[0].Password != "" {
+		t.Fatalf("expected empty password, got %q", profiles[0].Password)
+	}
+
+	cfgPath, _ := DefaultUserConfigFile()
+	var cfg userConfig
+	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if cfg.Profiles[0].Password != "" {
+		t.Fatalf("expected empty password in config, got %q", cfg.Profiles[0].Password)
+	}
+	if _, err := keyring.Get("emqutiti-test", "user"); err == nil {
+		t.Fatalf("expected no keyring entry when password is empty")
+	}
+}
+
 func TestPersistProfileChangeWriteError(t *testing.T) {
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, ".config")
@@ -211,6 +257,91 @@ func TestPersistProfileChangeWriteError(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestPersistProfileChangeSkipsKeyringWithoutUsername(t *testing.T) {
+	keyring.MockInit()
+	dir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", dir)
+	defer os.Setenv("HOME", oldHome)
+
+	profiles := []Profile{}
+	p := Profile{Name: "test", Password: "secret"}
+	if err := persistProfileChange(&profiles, "test", p, -1); err != nil {
+		t.Fatalf("persistProfileChange: %v", err)
+	}
+	if len(profiles) != 1 {
+		t.Fatalf("expected 1 profile, got %d", len(profiles))
+	}
+	if profiles[0].Password != "secret" {
+		t.Fatalf("expected plain password to persist when username empty, got %q", profiles[0].Password)
+	}
+	if _, err := keyring.Get("emqutiti-test", ""); err == nil {
+		t.Fatalf("expected no keyring entry for empty username")
+	}
+	cfgPath, _ := DefaultUserConfigFile()
+	var cfg userConfig
+	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if cfg.Profiles[0].Password != "secret" {
+		t.Fatalf("expected plain password in config, got %q", cfg.Profiles[0].Password)
+	}
+}
+
+func TestDeleteConnectionRemovesPassword(t *testing.T) {
+	keyring.MockInit()
+	dir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", dir)
+	defer os.Setenv("HOME", oldHome)
+
+	if err := savePasswordToKeyring("p1", "u1", "secret"); err != nil {
+		t.Fatalf("savePasswordToKeyring: %v", err)
+	}
+
+	mgr := NewConnectionsModel()
+	mgr.Profiles = []Profile{{Name: "p1", Username: "u1", Password: "secret"}}
+	mgr.Statuses = map[string]string{}
+	mgr.Errors = map[string]string{}
+	mgr.DeleteConnection(0)
+
+	if len(mgr.Profiles) != 0 {
+		t.Fatalf("expected profile removed, got %d", len(mgr.Profiles))
+	}
+	if _, err := keyring.Get("emqutiti-p1", "u1"); err == nil {
+		t.Fatalf("expected password removed from keyring")
+	}
+}
+
+func TestDeleteConnectionClearsDefault(t *testing.T) {
+	keyring.MockInit()
+	dir := t.TempDir()
+	oldHome := os.Getenv("HOME")
+	os.Setenv("HOME", dir)
+	defer os.Setenv("HOME", oldHome)
+
+	mgr := NewConnectionsModel()
+	mgr.Profiles = []Profile{{Name: "p1"}, {Name: "p2"}}
+	mgr.DefaultProfileName = "p1"
+	mgr.Statuses = map[string]string{}
+	mgr.Errors = map[string]string{}
+
+	mgr.DeleteConnection(0)
+
+	if mgr.DefaultProfileName != "p2" {
+		t.Fatalf("expected default to move to remaining profile, got %q", mgr.DefaultProfileName)
+	}
+	cfgPath, _ := DefaultUserConfigFile()
+	var cfg userConfig
+	if _, err := toml.DecodeFile(cfgPath, &cfg); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if cfg.DefaultProfileName != "p2" {
+		t.Fatalf("expected config default p2, got %q", cfg.DefaultProfileName)
+	}
+}
+
 func TestApplyDefaultPassword(t *testing.T) {
 	t.Setenv("EMQUTITI_DEFAULT_PASSWORD", "envpw")
 

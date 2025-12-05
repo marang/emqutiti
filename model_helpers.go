@@ -55,10 +55,17 @@ func (m *model) startHistoryFilter() tea.Cmd {
 
 // SetMode updates the current mode and focus order.
 func (m *model) SetMode(mode constants.AppMode) tea.Cmd {
+	prevMode := m.CurrentMode()
 	if m.focus != nil && len(m.ui.focusOrder) > m.ui.focusIndex {
 		if f, ok := m.focusables[m.ui.focusOrder[m.ui.focusIndex]]; ok {
 			f.Blur()
 		}
+	}
+	if m.ui.focusMemory == nil {
+		m.ui.focusMemory = map[constants.AppMode]int{}
+	}
+	if len(m.ui.focusOrder) > 0 {
+		m.ui.focusMemory[prevMode] = m.ui.focusIndex
 	}
 	// push mode to stack
 	if len(m.ui.modeStack) == 0 || m.ui.modeStack[0] != mode {
@@ -103,6 +110,9 @@ func (m *model) SetMode(mode constants.AppMode) tea.Cmd {
 		}
 	}
 	m.focus = focus.NewFocusMap(items)
+	if idx, ok := m.ui.focusMemory[mode]; ok && idx >= 0 && idx < len(items) {
+		m.focus.Set(idx)
+	}
 	m.ui.focusIndex = m.focus.Index()
 	m.help.Blur()
 	return nil

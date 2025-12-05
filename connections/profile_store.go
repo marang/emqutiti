@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zalando/go-keyring"
 
@@ -28,6 +29,16 @@ func savePasswordToKeyring(service, username, password string) error {
 	return keyring.Set("emqutiti-"+service, username, password)
 }
 
+func deletePasswordFromKeyring(service, username string) error {
+	if strings.TrimSpace(service) == "" {
+		return nil
+	}
+	if err := keyring.Delete("emqutiti-"+service, username); err != nil && !errors.Is(err, keyring.ErrNotFound) {
+		return err
+	}
+	return nil
+}
+
 // deleteProfileData removes profile-specific persisted history and traces and
 // returns any cleanup errors.
 func deleteProfileData(name string) error {
@@ -49,10 +60,16 @@ func deleteProfileData(name string) error {
 // persistProfileChange applies a profile update, saves config and keyring.
 func persistProfileChange(profiles *[]Profile, defaultName string, p Profile, idx int) error {
 	plain := p.Password
-	if !p.FromEnv {
+	hasPassword := strings.TrimSpace(plain) != ""
+	canUseKeyring := !p.FromEnv && hasPassword && strings.TrimSpace(p.Name) != "" && strings.TrimSpace(p.Username) != ""
+	if canUseKeyring {
 		p.Password = "keyring:emqutiti-" + p.Name + "/" + p.Username
 	} else {
-		p.Password = ""
+		if p.FromEnv {
+			p.Password = ""
+		} else {
+			p.Password = plain
+		}
 	}
 	if idx >= 0 && idx < len(*profiles) {
 		(*profiles)[idx] = p
@@ -62,7 +79,7 @@ func persistProfileChange(profiles *[]Profile, defaultName string, p Profile, id
 	if err := saveConfig(*profiles, defaultName); err != nil {
 		return err
 	}
-	if !p.FromEnv {
+	if canUseKeyring {
 		if err := savePasswordToKeyring(p.Name, p.Username, plain); err != nil {
 			return err
 		}

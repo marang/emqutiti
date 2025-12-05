@@ -85,7 +85,16 @@ func (d *Dialog) View() string {
 		content = lipgloss.JoinVertical(lipgloss.Left, d.prompt, d.info)
 	}
 	content = lipgloss.NewStyle().Padding(1, 2).Render(content)
-	box := ui.LegendBox(content, "Confirm", d.nav.Width()/2, 0, ui.ColBlue, true, -1)
+	label := "Confirm"
+	width := lipgloss.Width(content) + 2
+	if lw := lipgloss.Width(label) + 4; width < lw {
+		width = lw
+	}
+	maxWidth := d.nav.Width() - 2
+	if maxWidth > 0 && width > maxWidth {
+		width = maxWidth
+	}
+	box := ui.LegendBox(content, label, width, 0, ui.ColBlue, true, -1)
 	return lipgloss.Place(d.nav.Width(), d.nav.Height(), lipgloss.Center, lipgloss.Center, box)
 }
 

@@ -105,13 +105,24 @@ func (m *Connections) EditConnection(index int, p Profile) {
 // DeleteConnection removes a connection from the list and updates config.toml.
 func (m *Connections) DeleteConnection(index int) {
 	if index >= 0 && index < len(m.Profiles) {
-		name := m.Profiles[index].Name
+		p := m.Profiles[index]
+		name := p.Name
 		m.Profiles = append(m.Profiles[:index], m.Profiles[index+1:]...)
+		if name == m.DefaultProfileName {
+			if len(m.Profiles) > 0 {
+				m.DefaultProfileName = m.Profiles[0].Name
+			} else {
+				m.DefaultProfileName = ""
+			}
+		}
 		delete(m.Statuses, name)
 		delete(m.Errors, name)
 		// Persist removal so the connection no longer appears after a restart
 		if err := saveConfig(m.Profiles, m.DefaultProfileName); err != nil {
 			log.Printf("Failed to save config after deleting %s: %v", name, err)
+		}
+		if err := deletePasswordFromKeyring(p.Name, p.Username); err != nil {
+			log.Printf("Failed to delete password for %s/%s: %v", p.Name, p.Username, err)
 		}
 		if err := deleteProfileData(name); err != nil {
 			log.Printf("Failed to remove data for profile %s: %v", name, err)

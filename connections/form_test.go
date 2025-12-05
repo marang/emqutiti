@@ -2,6 +2,7 @@ package connections
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/marang/emqutiti/ui"
@@ -43,6 +44,17 @@ func TestNewConnectionFormEnvReadOnly(t *testing.T) {
 				t.Errorf("field %s not read-only", formFields[i].key)
 			}
 		}
+	}
+}
+
+func TestEnvVarNamesShownInView(t *testing.T) {
+	cf := NewForm(Profile{Name: "env", FromEnv: true}, 0)
+	view := cf.View()
+	if !strings.Contains(view, "EMQUTITI_ENV_HOST") {
+		t.Fatalf("expected env host var in view")
+	}
+	if !strings.Contains(view, "EMQUTITI_ENV_PORT") {
+		t.Fatalf("expected env port var in view")
 	}
 }
 

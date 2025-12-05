@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -17,8 +18,9 @@ import (
 // Form collects broker configuration fields.
 type Form struct {
 	ui.Form
-	Index   int  // -1 for new
-	fromEnv bool // current state of env loading
+	Index    int   // -1 for new
+	fromEnv  bool  // current state of env loading
+	rowIndex []int // maps rendered rows to field indices; -1 for non-field rows
 }
 
 type fieldType int
@@ -37,6 +39,7 @@ type fieldDef struct {
 }
 
 var formFields = []fieldDef{
+	{key: "FromEnv", label: "Load from env", placeholder: "Values from env", fieldType: ftBool},
 	{key: "Name", label: "Name", placeholder: "Name", fieldType: ftText},
 	{key: "Schema", label: "Schema", placeholder: "Schema", fieldType: ftSelect, options: []string{"tcp", "ssl", "ws", "wss", "mqtt", "mqtts"}},
 	{key: "Host", label: "Host", placeholder: "Host", fieldType: ftText},
@@ -45,7 +48,6 @@ var formFields = []fieldDef{
 	{key: "RandomIDSuffix", label: "Random ID suffix", placeholder: "Random ID suffix", fieldType: ftBool},
 	{key: "Username", label: "Username", placeholder: "Username", fieldType: ftText},
 	{key: "Password", label: "Password", fieldType: ftPassword},
-	{key: "FromEnv", label: "Load from env", placeholder: "Values from env", fieldType: ftBool},
 	{key: "SSL", label: "SSL/TLS", placeholder: "SSL/TLS", fieldType: ftBool},
 	{key: "SkipTLSVerify", label: "Skip TLS verify", placeholder: "Skip TLS verify", fieldType: ftBool},
 	{key: "CACertPath", label: "CA Cert Path", placeholder: "CA Cert Path", fieldType: ftText},
@@ -69,6 +71,20 @@ var formFields = []fieldDef{
 	{key: "LastWillQos", label: "Last Will QoS", placeholder: "Last Will QoS", fieldType: ftSelect, options: []string{"0", "1", "2"}},
 	{key: "LastWillRetain", label: "Last Will Retain", placeholder: "Last Will Retain", fieldType: ftBool},
 	{key: "LastWillPayload", label: "Last Will Payload", placeholder: "Last Will Payload", fieldType: ftText},
+}
+
+func envVarNames(prefix string) []string {
+	rt := reflect.TypeOf(Profile{})
+	var names []string
+	for i := 0; i < rt.NumField(); i++ {
+		tag := rt.Field(i).Tag.Get("env")
+		if tag == "" {
+			continue
+		}
+		names = append(names, prefix+strings.ToUpper(tag))
+	}
+	sort.Strings(names)
+	return names
 }
 
 var fieldIndex = func() map[string]int {
@@ -151,8 +167,12 @@ func (f Form) Update(msg tea.Msg) (Form, tea.Cmd) {
 		f.CycleFocus(m)
 	case tea.MouseMsg:
 		if m.Action == tea.MouseActionPress && m.Button == tea.MouseButtonLeft {
-			if m.Y >= 1 && m.Y-1 < len(f.Fields) {
-				f.Focus = m.Y - 1
+			row := m.Y - 1
+			switch {
+			case row >= 0 && row < len(f.rowIndex) && f.rowIndex[row] >= 0:
+				f.Focus = f.rowIndex[row]
+			case row >= 0 && row < len(f.Fields) && len(f.rowIndex) == 0:
+				f.Focus = row
 			}
 		}
 	}
@@ -178,7 +198,8 @@ func (f Form) Update(msg tea.Msg) (Form, tea.Cmd) {
 }
 
 // View renders the form with labels in a left column and inputs on the right.
-func (f Form) View() string {
+func (f *Form) View() string {
+	f.rowIndex = f.rowIndex[:0]
 	var rows []string
 	maxLabel := 0
 	for _, fd := range formFields {
@@ -186,29 +207,61 @@ func (f Form) View() string {
 			maxLabel = w
 		}
 	}
+	idxFromEnv := fieldIndex["FromEnv"]
+	idxName := fieldIndex["Name"]
 	labelStyle := lipgloss.NewStyle().Width(maxLabel).Align(lipgloss.Right)
 	for i, in := range f.Fields {
 		label := formFields[i].label
 		if i == f.Focus {
 			label = ui.FocusedStyle.Render(label)
 		}
+		if i == idxFromEnv {
+			rows = append(rows, "")
+			f.rowIndex = append(f.rowIndex, -1)
+		}
 		left := labelStyle.Render(label)
 		row := lipgloss.JoinHorizontal(lipgloss.Top, left, ": ", in.View())
 		rows = append(rows, row)
+		f.rowIndex = append(f.rowIndex, i)
 		if sf, ok := in.(*ui.SelectField); ok && f.IsFocused(i) {
 			if opts := sf.OptionsView(); opts != "" {
 				indent := lipgloss.NewStyle().MarginLeft(maxLabel + 2).Render(opts)
-				rows = append(rows, indent)
+				parts := strings.Split(indent, "\n")
+				rows = append(rows, parts...)
+				for range parts {
+					f.rowIndex = append(f.rowIndex, -1)
+				}
 			}
 		}
+		if i == idxFromEnv {
+			name := strings.TrimSpace(f.Fields[idxName].Value())
+			prefix := "EMQUTITI_<NAME>_"
+			if name != "" {
+				prefix = EnvPrefix(name)
+			}
+			hintText := []string{
+				"Toggle to load values from env vars: " + prefix + "<FIELD>.",
+				"Turn off to edit manually.",
+			}
+			for _, line := range hintText {
+				rows = append(rows, ui.InfoStyle.Render(line))
+				f.rowIndex = append(f.rowIndex, -1)
+			}
+			rows = append(rows, "")
+			f.rowIndex = append(f.rowIndex, -1)
+		}
 	}
-	idxFromEnv := fieldIndex["FromEnv"]
-	idxName := fieldIndex["Name"]
 	if chk, ok := f.Fields[idxFromEnv].(*ui.CheckField); ok && chk.Bool() {
 		prefix := EnvPrefix(f.Fields[idxName].Value())
-		rows = append(rows, ui.InfoStyle.Render("Values loaded from env vars: "+prefix+"<FIELD>"))
+		vars := envVarNames(prefix)
+		if len(vars) == 0 {
+			vars = []string{prefix + "<FIELD>"}
+		}
+		rows = append(rows, ui.InfoStyle.Render("Values loaded from env vars: "+strings.Join(vars, ", ")))
+		f.rowIndex = append(f.rowIndex, -1)
 	}
 	rows = append(rows, "", ui.InfoStyle.Render("[enter] save  [esc] cancel"))
+	f.rowIndex = append(f.rowIndex, -1, -1)
 	return strings.Join(rows, "\n")
 }
 
