@@ -1,6 +1,8 @@
 package history
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -129,6 +131,18 @@ func (h *Component) ViewDetail() string {
 	}
 	view := ui.LegendBox(content, "Message", h.m.Width()-2, h.m.Height()-2, ui.ColGreen, true, sp)
 	return h.m.OverlayHelp(view)
+}
+
+// FormatDetailPayload prepares payload text for the detail view. JSON payloads
+// are pretty printed with indentation. Non-JSON payloads are returned
+// unchanged.
+func FormatDetailPayload(payload string) string {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, []byte(payload), "", "  "); err != nil {
+		return payload
+	}
+
+	return buf.String()
 }
 
 // ViewFilter displays the history filter form.

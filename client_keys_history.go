@@ -106,7 +106,7 @@ func (m *model) handleHistoryViewKey() tea.Cmd {
 		return nil
 	}
 	m.history.SetDetailItem(hi)
-	m.history.Detail().SetContent(hi.Payload)
+	m.history.Detail().SetContent(history.FormatDetailPayload(hi.Payload))
 	m.history.Detail().SetYOffset(0)
 	return m.SetMode(constants.ModeHistoryDetail)
 }
