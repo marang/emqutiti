@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/marang/emqutiti/constants"
+	"github.com/marang/emqutiti/internal/clipboardutil"
 	"github.com/marang/emqutiti/ui"
 )
 
@@ -74,6 +75,8 @@ func (h *Component) UpdateDetail(msg tea.Msg) tea.Cmd {
 			return h.m.SetMode(h.m.PreviousMode())
 		case constants.KeyCtrlD:
 			return tea.Quit
+		case constants.KeyCtrlC:
+			return h.copyDetailPayload()
 		}
 	}
 	h.detail, cmd = h.detail.Update(msg)
@@ -122,7 +125,7 @@ func (h *Component) UpdateFilter(msg tea.Msg) tea.Cmd {
 // ViewDetail renders the full payload of a history message.
 func (h *Component) ViewDetail() string {
 	lines := strings.Split(h.detail.View(), "\n")
-	help := ui.InfoStyle.Render("[esc] back")
+	help := ui.InfoStyle.Render("[esc] back • [ctrl+c] copy")
 	lines = append(lines, help)
 	content := strings.Join(lines, "\n")
 	sp := -1.0
@@ -201,4 +204,15 @@ func (h *Component) Append(topic, payload, kind string, retained bool, logText s
 		}
 	}
 	h.appendItems(items...)
+}
+
+func (h *Component) copyDetailPayload() tea.Cmd {
+	formatted := FormatDetailPayload(h.detailItem.Payload)
+	if err := clipboardutil.Copy(formatted); err != nil {
+		msg := fmt.Sprintf("history copy error: %v", err)
+		h.Append("", msg, "log", false, msg)
+		return nil
+	}
+	h.Append("", "Copied detail payload", "log", false, "Copied detail payload")
+	return nil
 }

@@ -6,12 +6,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/marang/emqutiti/constants"
 	"github.com/marang/emqutiti/history"
+	"github.com/marang/emqutiti/internal/clipboardutil"
 )
 
 // copyHistoryItems writes the provided history items to the clipboard and logs
@@ -28,7 +28,7 @@ func (m *model) copyHistoryItems(items []history.Item) (int, error) {
 	if len(parts) == 0 {
 		return 0, nil
 	}
-	if err := clipboard.WriteAll(strings.Join(parts, "\n")); err != nil {
+	if err := clipboardutil.Copy(strings.Join(parts, "\n")); err != nil {
 		m.history.Append("", err.Error(), "log", false, err.Error())
 		return 0, err
 	}
