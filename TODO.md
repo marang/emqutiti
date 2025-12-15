@@ -31,4 +31,8 @@ This file tracks planned improvements for Emqutiti.
 - [x] Provide a Dockerfile for tape recording to avoid host installs
 - [x] Add screenshots to the README
 
+## Storage
+- [x] Reduce BadgerDB's initial footprint from ~2GB to a maximum of 10MB while
+      still allowing the database to grow as needed
+
 Remember to update this file as tasks are completed.

@@ -36,6 +36,13 @@ var (
 	proxyRunning bool
 )
 
+const (
+	// valueLogFileSizeBytes caps BadgerDB value log files to keep the initial
+	// on-disk footprint around 10MB while still allowing the database to grow
+	// as new segments are allocated.
+	valueLogFileSizeBytes = 10 * 1024 * 1024
+)
+
 // StartProxy starts the gRPC proxy on addr. Only one may run at a time.
 func StartProxy(addr string) (*Proxy, error) {
 	proxyMu.Lock()
@@ -91,7 +98,9 @@ func (p *Proxy) getDB(profile, bucket string) (*badger.DB, error) {
 	if err := files.EnsureDir(path); err != nil {
 		return nil, err
 	}
-	opts := badger.DefaultOptions(path).WithLogger(nil)
+	opts := badger.DefaultOptions(path).
+		WithLogger(nil).
+		WithValueLogFileSize(valueLogFileSizeBytes)
 	db, err := badger.Open(opts)
 	if err != nil {
 		return nil, err
