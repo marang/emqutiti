@@ -8,18 +8,27 @@ import (
 	"github.com/marang/emqutiti/ui"
 )
 
+// isConnected reports whether the MQTT client is actually connected.
+func (m *model) isConnected() bool {
+	return m.mqttClient != nil && m.mqttClient.Client != nil && m.mqttClient.Client.IsConnected()
+}
+
 // clientInfoLine renders the connection status.
 func (m *model) clientInfoLine() string {
 	clientID := ""
-	if m.mqttClient != nil {
+	if m.mqttClient != nil && m.mqttClient.Client != nil {
 		r := m.mqttClient.Client.OptionsReader()
 		clientID = r.ClientID()
 	}
 	status := strings.TrimSpace(m.connections.Connection + " " + clientID)
 	st := ui.InfoSubtleStyle
-	if strings.HasPrefix(m.connections.Connection, "Connected") {
+	if m.isConnected() {
 		st = st.Foreground(ui.ColGreen)
-	} else if strings.HasPrefix(m.connections.Connection, "Connection lost") || strings.HasPrefix(m.connections.Connection, "Failed") {
+	} else if strings.HasPrefix(m.connections.Connection, "Connecting") {
+		// Keep subtle style for connecting state.
+		st = ui.InfoSubtleStyle
+	} else {
+		// Disconnected, connection lost, or failed.
 		st = st.Foreground(ui.ColWarn)
 	}
 	return st.Render(status)

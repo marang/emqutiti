@@ -26,35 +26,76 @@ func TestSelectFieldEmptyOptions(t *testing.T) {
 	}
 }
 
-func TestSelectFieldCyclesOptions(t *testing.T) {
+func TestSelectFieldNavigatesOptions(t *testing.T) {
 	sf, err := NewSelectField("one", []string{"one", "two", "three"})
 	if err != nil {
 		t.Fatalf("err when creating a new selectfield %v", err)
 	}
 	sf.Focus()
 
-	// cycle backward from first wraps to last
-	sf.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if got, want := sf.Index, 2; got != want {
+	// up from first stays at first (boundary)
+	sf.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if got, want := sf.Index, 0; got != want {
 		t.Fatalf("index=%d want=%d", got, want)
 	}
 
-	// cycle forward with right wraps around
-	sf.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if got, want := sf.Index, 0; got != want {
+	// down moves to next
+	sf.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if got, want := sf.Index, 1; got != want {
 		t.Fatalf("index=%d want=%d", got, want)
 	}
 
 	// space advances
 	sf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
-	if got, want := sf.Index, 1; got != want {
+	if got, want := sf.Index, 2; got != want {
 		t.Fatalf("index=%d want=%d", got, want)
 	}
 
-	// forward again
-	sf.Update(tea.KeyMsg{Type: tea.KeyRight})
+	// down from last stays at last (boundary)
+	sf.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if got, want := sf.Index, 2; got != want {
 		t.Fatalf("index=%d want=%d", got, want)
+	}
+
+	// up moves back
+	sf.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if got, want := sf.Index, 1; got != want {
+		t.Fatalf("index=%d want=%d", got, want)
+	}
+}
+
+func TestSelectFieldWantsKey(t *testing.T) {
+	sf, err := NewSelectField("two", []string{"one", "two", "three"})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	sf.Focus()
+	sf.Index = 1 // middle item
+
+	// In middle, field wants up/down keys.
+	if !sf.WantsKey(tea.KeyMsg{Type: tea.KeyUp}) {
+		t.Fatalf("expected WantsKey=true for up in middle")
+	}
+	if !sf.WantsKey(tea.KeyMsg{Type: tea.KeyDown}) {
+		t.Fatalf("expected WantsKey=true for down in middle")
+	}
+
+	// At first item, up should pass to form.
+	sf.Index = 0
+	if sf.WantsKey(tea.KeyMsg{Type: tea.KeyUp}) {
+		t.Fatalf("expected WantsKey=false for up at first item")
+	}
+	if !sf.WantsKey(tea.KeyMsg{Type: tea.KeyDown}) {
+		t.Fatalf("expected WantsKey=true for down at first item")
+	}
+
+	// At last item, down should pass to form.
+	sf.Index = 2
+	if !sf.WantsKey(tea.KeyMsg{Type: tea.KeyUp}) {
+		t.Fatalf("expected WantsKey=true for up at last item")
+	}
+	if sf.WantsKey(tea.KeyMsg{Type: tea.KeyDown}) {
+		t.Fatalf("expected WantsKey=false for down at last item")
 	}
 }
 
@@ -90,7 +131,7 @@ func TestSelectFieldReadOnly(t *testing.T) {
 		t.Fatalf("read-only field should not focus")
 	}
 
-	sf.Update(tea.KeyMsg{Type: tea.KeyRight})
+	sf.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if got, want := sf.Value(), "one"; got != want {
 		t.Fatalf("value=%s want=%s", got, want)
 	}

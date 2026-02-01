@@ -58,19 +58,38 @@ func (s *SelectField) Update(msg tea.Msg) tea.Cmd {
 	}
 	if km, ok := msg.(tea.KeyMsg); ok {
 		switch km.String() {
-		case constants.KeyLeft, constants.KeyH:
-			s.Index--
-		case constants.KeyRight, constants.KeyL, constants.KeySpaceBar:
-			s.Index++
-		}
-		if s.Index < 0 {
-			s.Index = len(s.options) - 1
-		}
-		if s.Index >= len(s.options) {
-			s.Index = 0
+		case constants.KeyUp, constants.KeyK:
+			if s.Index > 0 {
+				s.Index--
+			}
+		case constants.KeyDown, constants.KeyJ, constants.KeySpaceBar:
+			if s.Index < len(s.options)-1 {
+				s.Index++
+			}
 		}
 	}
 	return nil
+}
+
+// WantsKey reports whether the field wants to handle the key itself.
+// Returns false at boundaries to let the form cycle focus.
+func (s *SelectField) WantsKey(k tea.KeyMsg) bool {
+	if !s.focused || s.readOnly || len(s.options) == 0 {
+		return false
+	}
+	switch k.String() {
+	case constants.KeyUp, constants.KeyK:
+		// At first item, let form handle focus change.
+		return s.Index > 0
+	case constants.KeyDown, constants.KeyJ:
+		// At last item, let form handle focus change.
+		return s.Index < len(s.options)-1
+	case constants.KeySpaceBar:
+		// Space always advances selection within the field.
+		return s.Index < len(s.options)-1
+	default:
+		return false
+	}
 }
 
 func (s *SelectField) View() string {

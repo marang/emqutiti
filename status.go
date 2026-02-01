@@ -14,10 +14,12 @@ func (m *model) handleStatusMessage(msg connections.StatusMessage) tea.Cmd {
 	m.history.Append("", string(msg), "log", false, string(msg))
 	if strings.HasPrefix(string(msg), "Connected") && m.connections.Active != "" {
 		m.connections.SetConnected(m.connections.Active)
+		m.connections.Connection = string(msg)
 		m.connections.RefreshConnectionItems()
 		m.SubscribeActiveTopics()
 	} else if strings.HasPrefix(string(msg), "Connection lost") && m.connections.Active != "" {
 		m.connections.SetDisconnected(m.connections.Active, "")
+		m.connections.Connection = string(msg)
 		m.connections.RefreshConnectionItems()
 	}
 	return m.connections.ListenStatus()
