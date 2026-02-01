@@ -14,6 +14,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/mattn/go-runewidth v0.0.16
 	github.com/mochi-co/mqtt v1.3.2
+	github.com/sahilm/fuzzy v0.1.1
 	github.com/zalando/go-keyring v0.2.6
 	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
@@ -52,7 +53,6 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/xid v1.4.0 // indirect
-	github.com/sahilm/fuzzy v0.1.1 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect

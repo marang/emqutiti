@@ -222,3 +222,51 @@ vhs -o docs/assets/create_connection.gif docs/create_connection.tape
 ```
 You'll interact with the TUI directly on your machine.
 
+### Releasing
+
+Releases are driven by git tags. When you push a tag matching `v*`, GitHub
+Actions automatically publishes the new version to the AUR.
+
+#### Steps to release
+
+1. **Update version in PKGBUILD** (optional - the CI updates it automatically):
+   ```bash
+   # Edit PKGBUILD and set pkgver to the new version (without the v prefix)
+   pkgver=0.7.0
+   ```
+
+2. **Commit any pending changes**:
+   ```bash
+   git add -A
+   git commit -m "Prepare release v0.7.0"
+   ```
+
+3. **Create and push a version tag**:
+   ```bash
+   git tag v0.7.0
+   git push origin main --tags
+   ```
+
+   The tag must start with `v` followed by a semantic version (e.g., `v0.7.0`,
+   `v1.0.0`, `v2.1.3`).
+
+4. **Verify the release**:
+   - Check the GitHub Actions workflow runs successfully
+   - The AUR package will be updated automatically
+   - Users can install via `go install github.com/marang/emqutiti/cmd/emqutiti@v0.7.0`
+
+#### Tag format
+
+| Format | Example | Valid |
+|--------|---------|-------|
+| `v` + semver | `v0.7.0`, `v1.0.0` | Yes |
+| Without `v` | `0.7.0` | No (won't trigger CI) |
+| Pre-release | `v0.7.0-beta.1` | Yes (triggers CI) |
+
+#### What happens on release
+
+1. GitHub Actions workflow (`.github/workflows/aur.yml`) is triggered
+2. The workflow updates `PKGBUILD` with the new version and checksum
+3. The updated package is pushed to the AUR repository
+4. Arch Linux users can then install/update via `yay -S emqutiti`
+

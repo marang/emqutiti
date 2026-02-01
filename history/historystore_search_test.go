@@ -60,3 +60,135 @@ func TestHistoryStoreSearch(t *testing.T) {
 		}
 	})
 }
+
+func TestFuzzyMatchTopic(t *testing.T) {
+	tests := []struct {
+		name     string
+		topic    string
+		patterns []string
+		want     bool
+	}{
+		{
+			name:     "empty patterns match all",
+			topic:    "sensor/temperature",
+			patterns: nil,
+			want:     true,
+		},
+		{
+			name:     "exact match",
+			topic:    "sensor/temperature",
+			patterns: []string{"sensor/temperature"},
+			want:     true,
+		},
+		{
+			name:     "fuzzy match partial",
+			topic:    "sensor/temperature",
+			patterns: []string{"temp"},
+			want:     true,
+		},
+		{
+			name:     "fuzzy match beginning",
+			topic:    "sensor/temperature",
+			patterns: []string{"sens"},
+			want:     true,
+		},
+		{
+			name:     "fuzzy match non-contiguous",
+			topic:    "sensor/temperature",
+			patterns: []string{"sntp"},
+			want:     true,
+		},
+		{
+			name:     "no match",
+			topic:    "sensor/temperature",
+			patterns: []string{"humidity"},
+			want:     false,
+		},
+		{
+			name:     "one of multiple patterns matches",
+			topic:    "sensor/temperature",
+			patterns: []string{"humidity", "temp"},
+			want:     true,
+		},
+		{
+			name:     "empty pattern in list ignored",
+			topic:    "sensor/temperature",
+			patterns: []string{"", "temp"},
+			want:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fuzzyMatchTopic(tt.topic, tt.patterns)
+			if got != tt.want {
+				t.Errorf("fuzzyMatchTopic(%q, %v) = %v, want %v", tt.topic, tt.patterns, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHistoryStoreSearchFuzzy(t *testing.T) {
+	now := time.Now()
+	hs := &store{}
+
+	// Add messages with various topics.
+	topics := []string{
+		"home/living-room/temperature",
+		"home/living-room/humidity",
+		"home/bedroom/temperature",
+		"office/desk/light",
+		"garage/door/status",
+	}
+	for i, topic := range topics {
+		if err := hs.Append(Message{
+			Timestamp: now.Add(-time.Duration(i) * time.Minute),
+			Topic:     topic,
+			Payload:   "test",
+			Kind:      "pub",
+		}); err != nil {
+			t.Fatalf("Append failed: %v", err)
+		}
+	}
+
+	t.Run("fuzzy matches temperature topics", func(t *testing.T) {
+		res := hs.Search(false, []string{"temp"}, time.Time{}, time.Time{}, "")
+		if len(res) != 2 {
+			t.Fatalf("expected 2 temperature matches, got %d: %v", len(res), res)
+		}
+		for _, m := range res {
+			if m.Topic != "home/living-room/temperature" && m.Topic != "home/bedroom/temperature" {
+				t.Errorf("unexpected topic: %s", m.Topic)
+			}
+		}
+	})
+
+	t.Run("fuzzy matches living-room topics", func(t *testing.T) {
+		res := hs.Search(false, []string{"living"}, time.Time{}, time.Time{}, "")
+		if len(res) != 2 {
+			t.Fatalf("expected 2 living-room matches, got %d: %v", len(res), res)
+		}
+	})
+
+	t.Run("fuzzy matches with non-contiguous pattern", func(t *testing.T) {
+		// "hlrt" should match "home/living-room/temperature"
+		res := hs.Search(false, []string{"hlrt"}, time.Time{}, time.Time{}, "")
+		if len(res) == 0 {
+			t.Fatalf("expected fuzzy match for 'hlrt', got none")
+		}
+	})
+
+	t.Run("exact match still works", func(t *testing.T) {
+		res := hs.Search(false, []string{"garage/door/status"}, time.Time{}, time.Time{}, "")
+		if len(res) != 1 || res[0].Topic != "garage/door/status" {
+			t.Fatalf("exact match failed: %v", res)
+		}
+	})
+
+	t.Run("no match returns empty", func(t *testing.T) {
+		res := hs.Search(false, []string{"xyz123"}, time.Time{}, time.Time{}, "")
+		if len(res) != 0 {
+			t.Fatalf("expected no matches, got %d", len(res))
+		}
+	})
+}

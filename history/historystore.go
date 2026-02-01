@@ -10,6 +10,7 @@ import (
 
 	connections "github.com/marang/emqutiti/connections"
 	"github.com/marang/emqutiti/proxy"
+	"github.com/sahilm/fuzzy"
 	"google.golang.org/grpc"
 )
 
@@ -149,30 +150,51 @@ func (i *store) Archive(key string) error {
 	return fmt.Errorf("message %s not found", key)
 }
 
+// fuzzyMatchTopic reports whether the message topic fuzzy-matches any of the
+// provided patterns. An empty pattern list matches all topics.
+func fuzzyMatchTopic(topic string, patterns []string) bool {
+	if len(patterns) == 0 {
+		return true
+	}
+	for _, p := range patterns {
+		if p == "" {
+			continue
+		}
+		// Exact match takes priority.
+		if topic == p {
+			return true
+		}
+		// Fuzzy match: pattern should match within topic.
+		matches := fuzzy.Find(p, []string{topic})
+		if len(matches) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // Search returns messages matching the provided filters. Zero timestamps
 // disable the corresponding time constraints. When archived is true, only
-// archived messages are returned.
+// archived messages are returned. Topic filtering uses fuzzy matching.
 func (i *store) Search(archived bool, topics []string, start, end time.Time, payload string) []Message {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 
 	var out []Message
-	topicSet := map[string]struct{}{}
+	// Filter out empty topic patterns.
+	var topicPatterns []string
 	for _, t := range topics {
-		if t == "" {
-			continue
+		if t != "" {
+			topicPatterns = append(topicPatterns, t)
 		}
-		topicSet[t] = struct{}{}
 	}
 
 	for _, m := range i.msgs {
 		if m.Archived != archived {
 			continue
 		}
-		if len(topicSet) > 0 {
-			if _, ok := topicSet[m.Topic]; !ok {
-				continue
-			}
+		if !fuzzyMatchTopic(m.Topic, topicPatterns) {
+			continue
 		}
 		if !start.IsZero() && m.Timestamp.Before(start) {
 			continue

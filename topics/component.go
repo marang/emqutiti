@@ -381,7 +381,9 @@ func (c *Component) EnsureVisible(width int) {
 	}
 }
 
-// HandleClick processes mouse clicks on topics and triggers actions.
+// HandleClick processes mouse clicks on topics.
+// Left click focuses the chip; use Enter or Space to toggle subscription.
+// Right click prompts to delete the topic.
 func (c *Component) HandleClick(msg tea.MouseMsg, vpOffset int) tea.Cmd {
 	y := msg.Y + vpOffset
 	idx := c.TopicAtPosition(msg.X, y)
@@ -389,9 +391,8 @@ func (c *Component) HandleClick(msg tea.MouseMsg, vpOffset int) tea.Cmd {
 		return nil
 	}
 	c.SetSelected(idx)
-	if msg.Type == tea.MouseLeft {
-		return c.ToggleTopic(idx)
-	} else if msg.Type == tea.MouseRight {
+	// Left click only focuses; Enter/Space toggles subscription.
+	if msg.Type == tea.MouseRight {
 		name := c.Items[idx].Name
 		focused := c.api.FocusedID()
 		rf := func() tea.Cmd { return c.api.SetFocus(focused) }

@@ -5,18 +5,25 @@ import (
 	"testing"
 )
 
-func TestHandleClickToggles(t *testing.T) {
+func TestHandleClickFocusesOnly(t *testing.T) {
 	c := newTestComponent()
 	c.Items = []Item{{Name: "a", Subscribed: true}}
 	c.ChipBounds = []ChipBound{{XPos: 0, YPos: 0, Width: 5, Height: 1, Index: 0}}
 	msg := tea.MouseMsg{Type: tea.MouseLeft, X: 0, Y: 0}
-	c.HandleClick(msg, 0)
-	if c.Items[0].Subscribed {
-		t.Fatalf("expected toggle on click")
+	cmd := c.HandleClick(msg, 0)
+	// Left click should NOT toggle subscription, only focus.
+	if !c.Items[0].Subscribed {
+		t.Fatalf("left click should not toggle subscription")
+	}
+	if c.Selected() != 0 {
+		t.Fatalf("expected selected index 0, got %d", c.Selected())
+	}
+	if cmd != nil {
+		t.Fatalf("left click should not return a command")
 	}
 }
 
-func TestHandleClickUsesBoundIndex(t *testing.T) {
+func TestHandleClickSelectsBoundIndex(t *testing.T) {
 	c := newTestComponent()
 	c.Items = []Item{{Name: "a", Subscribed: true}, {Name: "b", Subscribed: true}, {Name: "c", Subscribed: true}}
 	c.ChipBounds = []ChipBound{
@@ -29,26 +36,40 @@ func TestHandleClickUsesBoundIndex(t *testing.T) {
 		t.Fatalf("expected position to map to index 1, got %d", idx)
 	}
 	cmd := c.HandleClick(msg, 0)
-	states := map[string]bool{}
+	// All items should remain subscribed (no toggle on click).
 	for _, it := range c.Items {
-		states[it.Name] = it.Subscribed
+		if !it.Subscribed {
+			t.Fatalf("left click should not toggle any item, %q was toggled", it.Name)
+		}
 	}
-	if states["b"] {
-		t.Fatalf("expected click to toggle item at bound index")
+	// The clicked chip should be selected.
+	if c.Selected() != 1 {
+		t.Fatalf("expected selected index 1, got %d", c.Selected())
 	}
-	if !states["a"] || !states["c"] {
-		t.Fatalf("unexpected toggle of other items")
+	if cmd != nil {
+		t.Fatalf("left click should not return a command")
+	}
+}
+
+func TestEnterTogglesSelectedTopic(t *testing.T) {
+	c := newTestComponent()
+	c.Items = []Item{{Name: "a", Subscribed: true}, {Name: "b", Subscribed: false}}
+	c.SetSelected(0)
+
+	// Simulate Enter key via ToggleTopic (called from Update on Enter/Space).
+	cmd := c.ToggleTopic(0)
+	if c.Items[0].Subscribed {
+		t.Fatalf("expected topic 'a' to be unsubscribed after toggle")
 	}
 	if cmd == nil {
 		t.Fatalf("expected toggle command")
 	}
-	if msg := cmd(); msg != nil {
-		tm, ok := msg.(ToggleMsg)
-		if !ok {
-			t.Fatalf("expected ToggleMsg, got %T", msg)
-		}
-		if tm.Topic != "b" {
-			t.Fatalf("expected toggle topic 'b', got %q", tm.Topic)
-		}
+	msg := cmd()
+	tm, ok := msg.(ToggleMsg)
+	if !ok {
+		t.Fatalf("expected ToggleMsg, got %T", msg)
+	}
+	if tm.Topic != "a" || tm.Subscribed {
+		t.Fatalf("unexpected ToggleMsg: %+v", tm)
 	}
 }
