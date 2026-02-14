@@ -21,8 +21,8 @@ This file tracks planned improvements for Emqutiti.
 
 ## Packaging
 - [x] Provide a `PKGBUILD` for Arch Linux
-- [ ] Debian/Ubuntu package
-- [ ] Fedora RPM
+- [x] Debian/Ubuntu package (`.deb` via GoReleaser)
+- [x] Fedora RPM (`.rpm` via GoReleaser)
 - [ ] Homebrew formula for macOS users
 - [ ] Flatpak package
 

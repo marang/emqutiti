@@ -1,0 +1,51 @@
+project_name: emqutiti
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: emqutiti
+    main: ./cmd/emqutiti
+    binary: emqutiti
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: bundles
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+nfpms:
+  - id: linux-packages
+    package_name: emqutiti
+    builds: [emqutiti]
+    formats: [deb, rpm]
+    maintainer: "Emqutiti Authors"
+    description: "Terminal UI for MQTT workflows"
+    homepage: "https://github.com/marang/emqutiti"
+    license: "MIT"
+    bindir: /usr/bin
+    contents:
+      - src: ./README.md
+        dst: /usr/share/doc/emqutiti/README.md
+      - src: ./LICENSE
+        dst: /usr/share/doc/emqutiti/LICENSE
+
+release:
+  github:
+    owner: marang
+    name: emqutiti

@@ -225,10 +225,15 @@ You'll interact with the TUI directly on your machine.
 ### Releasing
 
 Releases are driven by git tags. When you push a tag matching `v*`, GitHub
-Actions automatically publishes the new version to the AUR.
+Actions runs both release pipelines:
 
-For a Codex-ready template to add GoReleaser (`deb`/`rpm`) and optional
-Flatpak automation, see `docs/howto-codex-goreleaser.md`.
+- `.github/workflows/release.yml` publishes a GitHub Release with multi-platform
+  binaries and Linux packages (`.deb` and `.rpm`) built by GoReleaser.
+- `.github/workflows/aur.yml` updates the AUR package metadata.
+
+The GoReleaser configuration lives in `.goreleaser.yaml`. For the Codex-ready
+guide that introduced this setup (including an optional Flatpak artifact job),
+see `docs/howto-codex-goreleaser.md`.
 
 #### Steps to release
 
@@ -254,8 +259,9 @@ Flatpak automation, see `docs/howto-codex-goreleaser.md`.
    `v1.0.0`, `v2.1.3`).
 
 4. **Verify the release**:
-   - Check the GitHub Actions workflow runs successfully
-   - The AUR package will be updated automatically
+   - Check the release workflow succeeds and uploads GitHub assets
+   - Verify `deb`/`rpm` packages and checksums are attached to the release
+   - Confirm the AUR workflow updates package metadata automatically
    - Users can install via `go install github.com/marang/emqutiti/cmd/emqutiti@v0.7.0`
 
 #### Tag format
@@ -268,8 +274,8 @@ Flatpak automation, see `docs/howto-codex-goreleaser.md`.
 
 #### What happens on release
 
-1. GitHub Actions workflow (`.github/workflows/aur.yml`) is triggered
-2. The workflow updates `PKGBUILD` with the new version and checksum
-3. The updated package is pushed to the AUR repository
-4. Arch Linux users can then install/update via `yay -S emqutiti`
-
+1. GitHub Actions release workflow (`.github/workflows/release.yml`) is triggered
+2. GoReleaser builds cross-platform binaries and publishes release assets
+3. nFPM outputs `.deb` and `.rpm` packages for Linux distribution users
+4. AUR workflow (`.github/workflows/aur.yml`) updates `PKGBUILD` and `.SRCINFO`
+5. Arch Linux users can then install/update via `yay -S emqutiti`

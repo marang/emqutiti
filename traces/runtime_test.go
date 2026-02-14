@@ -35,12 +35,14 @@ func newFakeClient() *fakeClient {
 }
 
 func (f *fakeClient) Subscribe(topic string, qos byte, cb mqtt.MessageHandler) error {
+	f.mu.Lock()
 	f.subs[topic] = func(c mqtt.Client, m mqtt.Message) {
 		cb(c, m)
 		if f.wg != nil {
 			f.wg.Done()
 		}
 	}
+	f.mu.Unlock()
 	select {
 	case f.subCh <- struct{}{}:
 	default:

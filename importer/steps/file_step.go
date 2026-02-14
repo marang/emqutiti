@@ -1,6 +1,7 @@
 package steps
 
 import (
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -35,10 +36,13 @@ func (s *FileStep) Update(msg tea.Msg) (Step, tea.Cmd) {
 			return s, cmd
 		}
 		s.Rows = rows
-		s.Headers = nil
-		var fields []ui.Field
+		s.Headers = s.Headers[:0]
 		for k := range rows[0] {
 			s.Headers = append(s.Headers, k)
+		}
+		sort.Strings(s.Headers)
+		var fields []ui.Field
+		for _, k := range s.Headers {
 			fi := ui.NewTextField(k, "")
 			if v, ok := s.Prefs.Mapping[k]; ok {
 				fi.SetValue(v)
