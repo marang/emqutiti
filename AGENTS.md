@@ -27,6 +27,13 @@
   entry—prefer `Ctrl` combinations. `ExampleSet_manual` in
   `keyring_util_test.go` requires a real keyring and is skipped by default.
 
+## Response Efficiency
+- Prefer concise responses by default: 3-6 lines unless the user asks for more.
+- Use brief progress updates only for long-running tasks or blockers.
+- Avoid repeating command output verbatim; summarize key results.
+- In final updates, list only: what changed, what was run, and next action.
+- Ask at most one clarifying question when required; otherwise proceed.
+
 ## Agent Notes
 The TUI runs fullscreen with colorful borders. Press `Ctrl+B` to open the broker manager to add, edit, or delete MQTT profiles. Passwords are stored securely using the system keyring. Publish messages with `Ctrl+S` or use `Ctrl+E` to retain them, when the message field is focused. History labels retained messages. Use the `--import`/`-i` flag to launch an interactive wizard for CSV bulk publishing and select a connection with `--profile` or `-p`. The wizard lets you rename columns when mapping them to JSON fields. Leaving a mapping blank keeps the original column name. The importer code lives in the main package and runs via these flags.
 Press `Ctrl+D` from any screen to exit the program.
