@@ -24,12 +24,14 @@ This file tracks planned improvements for Emqutiti.
 - [ ] Debian/Ubuntu package
 - [ ] Fedora RPM
 - [ ] Homebrew formula for macOS users
+- [ ] Flatpak package
 
 ## Documentation
 - [x] Include a VHS GIF in the README
 - [x] Document GIF generation using `vhs`
 - [x] Provide a Dockerfile for tape recording to avoid host installs
 - [x] Add screenshots to the README
+- [x] Add Codex how-to for GoReleaser + optional Flatpak
 
 ## Storage
 - [x] Reduce BadgerDB's initial footprint from ~2GB to a maximum of 10MB while

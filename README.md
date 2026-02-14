@@ -227,6 +227,9 @@ You'll interact with the TUI directly on your machine.
 Releases are driven by git tags. When you push a tag matching `v*`, GitHub
 Actions automatically publishes the new version to the AUR.
 
+For a Codex-ready template to add GoReleaser (`deb`/`rpm`) and optional
+Flatpak automation, see `docs/howto-codex-goreleaser.md`.
+
 #### Steps to release
 
 1. **Update version in PKGBUILD** (optional - the CI updates it automatically):

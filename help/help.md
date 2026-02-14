@@ -94,3 +94,4 @@ Retained messages are labeled "(retained)".
 - `--start TIME` Optional RFC3339 start time (e.g., `--start "2025-08-05T11:47:00Z"`)
 - `--end TIME` Optional RFC3339 end time (e.g., `--end "2025-08-05T11:49:00Z"`)
 - Omit `-p/--profile` when tracing to pick a connection interactively before starting
+
