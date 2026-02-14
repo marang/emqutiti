@@ -58,11 +58,11 @@ jobs:
       - name: Build Flatpak repo
         run: |
           flatpak-builder --user --force-clean --repo=repo builddir \
-            flatpak/org.example.Emqutiti.yml
+            flatpak/io.github.marang.Emqutiti.yml
 
       - name: Build Flatpak bundle
         run: |
-          flatpak build-bundle repo emqutiti.flatpak org.example.Emqutiti \
+          flatpak build-bundle repo emqutiti.flatpak io.github.marang.Emqutiti \
             --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 
       - name: Upload Flatpak artifact

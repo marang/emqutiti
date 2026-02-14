@@ -131,10 +131,10 @@ jobs:
 Flatpak is not usually the primary channel for CLI/TUI apps, but you can add
 it as an extra CI output or for a later Flathub submission.
 
-### Example manifest `flatpak/org.example.Emqutiti.yml`
+### Example manifest `flatpak/io.github.marang.Emqutiti.yml`
 
 ```yaml
-app-id: org.example.Emqutiti
+app-id: io.github.marang.Emqutiti
 runtime: org.freedesktop.Platform
 runtime-version: "24.08"
 sdk: org.freedesktop.Sdk
@@ -172,11 +172,11 @@ modules:
 
       - name: Build
         run: |
-          flatpak-builder --force-clean --repo=repo builddir flatpak/org.example.Emqutiti.yml
+          flatpak-builder --force-clean --repo=repo builddir flatpak/io.github.marang.Emqutiti.yml
 
       - name: Bundle
         run: |
-          flatpak build-bundle repo emqutiti.flatpak org.example.Emqutiti --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
+          flatpak build-bundle repo emqutiti.flatpak io.github.marang.Emqutiti --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 
       - uses: actions/upload-artifact@v4
         with:
