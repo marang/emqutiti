@@ -53,7 +53,7 @@ jobs:
             org.freedesktop.Sdk//24.08
 
       - name: Build emqutiti binary for Flatpak
-        run: go build -o emqutiti ./cmd/emqutiti
+        run: go build -o flatpak/emqutiti ./cmd/emqutiti
 
       - name: Build Flatpak repo
         run: |
