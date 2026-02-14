@@ -1,0 +1,18 @@
+app-id: org.example.Emqutiti
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+command: emqutiti
+
+finish-args:
+  - --share=network
+  - --filesystem=home
+
+modules:
+  - name: emqutiti
+    buildsystem: simple
+    build-commands:
+      - install -D emqutiti /app/bin/emqutiti
+    sources:
+      - type: file
+        path: emqutiti

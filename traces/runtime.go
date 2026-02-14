@@ -31,6 +31,7 @@ type Tracer struct {
 	cfg     TracerConfig
 	mu      sync.Mutex
 	running bool
+	ready   bool
 	counts  map[string]int
 	client  Client
 	cancel  context.CancelFunc
@@ -60,6 +61,7 @@ func (t *Tracer) Start() error {
 		return fmt.Errorf("trace already running")
 	}
 	t.running = true
+	t.ready = false
 	t.counts = make(map[string]int)
 	for _, tp := range t.cfg.Topics {
 		t.counts[tp] = 0
@@ -87,12 +89,10 @@ func (t *Tracer) Start() error {
 			cancel()
 			t.mu.Lock()
 			t.running = false
+			t.ready = false
 			t.cancel = nil
 			t.mu.Unlock()
 			close(t.done)
-			if t.report != nil {
-				close(t.report)
-			}
 		}()
 
 		delay := time.Until(t.cfg.Start)
@@ -142,6 +142,10 @@ func (t *Tracer) Start() error {
 			}
 		}
 
+		t.mu.Lock()
+		t.ready = true
+		t.mu.Unlock()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -163,6 +167,7 @@ func (t *Tracer) Stop() {
 		return
 	}
 	t.running = false
+	t.ready = false
 	if t.cancel != nil {
 		t.cancel()
 	}
@@ -177,7 +182,7 @@ func (t *Tracer) Stop() {
 func (t *Tracer) Running() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.running && time.Now().After(t.cfg.Start) && (t.cfg.End.IsZero() || time.Now().Before(t.cfg.End))
+	return t.running && t.ready && time.Now().After(t.cfg.Start) && (t.cfg.End.IsZero() || time.Now().Before(t.cfg.End))
 }
 
 // Planned reports whether the trace start time is in the future.

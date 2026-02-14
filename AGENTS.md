@@ -7,8 +7,9 @@
   patterns.
 - **Checks:** Execute `go vet ./...` and `go test ./...` before committing.
   Run `go mod tidy` when dependencies change.
-- **Release how-to:** For Codex automation of GoReleaser (`deb`/`rpm`) and
-  optional Flatpak, see `docs/howto-codex-goreleaser.md`.
+- **Release automation:** Tags matching `v*` run `.github/workflows/release.yml`
+  (GoReleaser + optional Flatpak) and `.github/workflows/aur.yml`. For the
+  Codex how-to used to add this setup, see `docs/howto-codex-goreleaser.md`.
 - **Tasks:** Use the `Makefile` for common workflows:
   `make build` compiles the app, `make test` runs vet and tests,
   `make proto` regenerates gRPC code, and `make tape` records demo

@@ -95,3 +95,8 @@ Retained messages are labeled "(retained)".
 - `--end TIME` Optional RFC3339 end time (e.g., `--end "2025-08-05T11:49:00Z"`)
 - Omit `-p/--profile` when tracing to pick a connection interactively before starting
 
+
+## Release notes
+
+- Maintainers: pushing a `v*` tag runs release automation for GitHub assets,
+  Linux packages (`.deb`/`.rpm`), and AUR metadata updates.
