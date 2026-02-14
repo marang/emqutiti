@@ -131,6 +131,14 @@ jobs:
 Flatpak is not usually the primary channel for CLI/TUI apps, but you can add
 it as an extra CI output or for a later Flathub submission.
 
+For this repository:
+- `flatpak/io.github.marang.Emqutiti.yml` is used by CI to bundle a local binary.
+- `flatpak/io.github.marang.Emqutiti.flathub.yml` is the Flathub-oriented
+  source-build manifest.
+- Regenerate Go module sources for Flathub with
+  `flatpak/scripts/update-go-sources.sh` (updates `flatpak/go-mod-sources.yml`
+  and `flatpak/modules.txt`).
+
 ### Example manifest `flatpak/io.github.marang.Emqutiti.yml`
 
 ```yaml

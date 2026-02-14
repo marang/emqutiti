@@ -1,0 +1,32 @@
+app-id: io.github.marang.Emqutiti
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+command: emqutiti
+
+finish-args:
+  - --share=network
+  - --filesystem=home
+  - --talk-name=org.freedesktop.secrets
+
+modules:
+  - name: emqutiti
+    buildsystem: simple
+    build-options:
+      env:
+        CGO_ENABLED: "0"
+        GO111MODULE: "on"
+        GOFLAGS: "-mod=vendor -trimpath"
+    build-commands:
+      - go build -o emqutiti ./cmd/emqutiti
+      - install -Dm755 emqutiti /app/bin/emqutiti
+      - install -Dm644 io.github.marang.Emqutiti.metainfo.xml /app/share/metainfo/io.github.marang.Emqutiti.metainfo.xml
+      - install -Dm644 docs/assets/emqutiti-satellite-gopher-logo.png /app/share/icons/hicolor/512x512/apps/io.github.marang.Emqutiti.png
+    sources:
+      - type: archive
+        url: https://github.com/marang/emqutiti/archive/refs/tags/v0.7.5.tar.gz
+        sha256: 46bcc1252335d3a8419d27c85dac9c90f1e7fcce5ed289850550690b099eac80
+        strip-components: 1
+      - type: file
+        path: io.github.marang.Emqutiti.metainfo.xml
+      - go-mod-sources.yml

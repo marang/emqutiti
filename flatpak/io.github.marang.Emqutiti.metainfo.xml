@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+  <id>io.github.marang.Emqutiti</id>
+  <name>Emqutiti</name>
+  <summary>Terminal UI for MQTT workflows</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.marang">
+    <name>Emqutiti Authors</name>
+  </developer>
+  <url type="homepage">https://github.com/marang/emqutiti</url>
+  <url type="bugtracker">https://github.com/marang/emqutiti/issues</url>
+  <provides>
+    <binary>emqutiti</binary>
+  </provides>
+  <description>
+    <p>
+      Emqutiti is a terminal-first MQTT client for publishing and inspecting
+      messages, managing broker profiles, and importing bulk payloads.
+    </p>
+  </description>
+  <content_rating type="oars-1.1"/>
+</component>
