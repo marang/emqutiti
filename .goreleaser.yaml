@@ -1,3 +1,5 @@
+version: 2
+
 project_name: emqutiti
 
 before:
@@ -32,7 +34,7 @@ checksum:
 nfpms:
   - id: linux-packages
     package_name: emqutiti
-    builds: [emqutiti]
+    ids: [emqutiti]
     formats: [deb, rpm]
     maintainer: "Emqutiti Authors"
     description: "Terminal UI for MQTT workflows"
