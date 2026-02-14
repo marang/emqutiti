@@ -182,6 +182,11 @@ modules:
         with:
           name: emqutiti-flatpak
           path: emqutiti.flatpak
+
+      - name: Upload Flatpak to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: emqutiti.flatpak
 ```
 
 ## 4) Codex prompt you can reuse
