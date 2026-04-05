@@ -3,10 +3,11 @@ PROTOC ?= protoc
 VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X github.com/marang/emqutiti/cmd.version=$(VERSION)
 
-.PHONY: build test vet proto tape
+.PHONY: build test vet proto tape deps-upgrade
 
 build:
-	go build -trimpath -ldflags="$(LDFLAGS)" -o emqutiti ./cmd/emqutiti
+	mkdir -p dist
+	go build -trimpath -ldflags="$(LDFLAGS)" -o ./dist/emqutiti ./cmd/emqutiti
 
 vet:
 	go vet ./...
@@ -27,3 +28,10 @@ tape:
 		--cap-add=SYS_ADMIN \
 		-v "$(CURDIR)":/work -w /work \
 		emqutiti-tape docs/scripts/record_tapes.sh
+
+deps-upgrade:
+	go list -m -u all
+	go get -u=patch ./...
+	go get -u ./...
+	go mod tidy
+	$(MAKE) test

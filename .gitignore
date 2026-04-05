@@ -12,7 +12,7 @@
 
 # Dependency directories (remove this line if you commit dependencies)
 /vendor/
-/bin/
+/dist/
 
 # IDE/editor files
 .idea/
@@ -46,4 +46,3 @@ docs/*.gif
 
 # Crush agent files
 .crush/
-
