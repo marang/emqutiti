@@ -1,6 +1,6 @@
 module github.com/marang/emqutiti
 
-go 1.25.0
+go 1.26.2
 
 require (
 	github.com/BurntSushi/toml v1.6.0
@@ -9,10 +9,10 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
-	github.com/charmbracelet/x/ansi v0.11.6
+	github.com/charmbracelet/x/ansi v0.11.7
 	github.com/dgraph-io/badger/v4 v4.9.1
 	github.com/eclipse/paho.mqtt.golang v1.5.1
-	github.com/mattn/go-runewidth v0.0.22
+	github.com/mattn/go-runewidth v0.0.23
 	github.com/mochi-co/mqtt v1.3.2
 	github.com/sahilm/fuzzy v0.1.1
 	github.com/zalando/go-keyring v0.2.8

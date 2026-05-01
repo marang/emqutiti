@@ -1,4 +1,4 @@
-FROM golang:1.24-bookworm
+FROM golang:1.26-bookworm
 
 # Install dependencies, including Chromium and its sandbox helper.
 RUN apt-get update && apt-get install -y --no-install-recommends \

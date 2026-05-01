@@ -22,7 +22,7 @@ jobs:
             base-devel git go pacman-contrib openssh curl sudo
 
       - name: Checkout source repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Strip leading v from tag
         id: v
