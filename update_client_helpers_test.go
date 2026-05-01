@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/marang/emqutiti/connections"
 	"github.com/marang/emqutiti/topics"
 	"github.com/marang/emqutiti/ui"
 
@@ -172,8 +173,45 @@ func TestUpdateClientStatus(t *testing.T) {
 	}
 	m.mqttClient = &MQTTClient{MessageChan: make(chan MQTTMessage)}
 	cmds = m.updateClientStatus()
-	if len(cmds) != 2 {
-		t.Fatalf("expected 2 cmds got %d", len(cmds))
+	if len(cmds) != 1 {
+		t.Fatalf("expected only mqtt listener after status listener is active, got %d", len(cmds))
+	}
+	cmds = m.updateClientStatus()
+	if len(cmds) != 0 {
+		t.Fatalf("expected no duplicate listeners, got %d", len(cmds))
+	}
+}
+
+func TestStatusMessageRearmsStatusListener(t *testing.T) {
+	m, _ := initialModel(nil)
+	if len(m.updateClientStatus()) != 1 {
+		t.Fatalf("expected initial status listener")
+	}
+
+	cmd := m.handleStatusMessage(connections.StatusMessage("Connected to MQTT broker"))
+
+	if cmd == nil {
+		t.Fatalf("expected rearmed status listener command")
+	}
+	if !m.ui.listeners.status {
+		t.Fatalf("expected status listener marked active")
+	}
+}
+
+func TestMQTTClosedMessageClearsListener(t *testing.T) {
+	m, _ := initialModel(nil)
+	m.mqttClient = &MQTTClient{MessageChan: make(chan MQTTMessage)}
+	if len(m.updateClientStatus()) != 2 {
+		t.Fatalf("expected status and mqtt listeners")
+	}
+
+	_, done := m.handleClientMsg(mqttListenClosedMsg{})
+
+	if !done {
+		t.Fatalf("expected closed mqtt listener message handled")
+	}
+	if m.ui.listeners.mqtt {
+		t.Fatalf("expected mqtt listener inactive after close")
 	}
 }
 

@@ -40,6 +40,9 @@ func (m *model) handleMouseScroll(msg tea.MouseMsg) (tea.Cmd, bool) {
 
 // handleHelpClick switches to help mode when the icon is clicked.
 func (m *model) handleHelpClick(msg tea.MouseMsg) (tea.Cmd, bool) {
+	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
+		return nil, false
+	}
 	helpWidth := lipgloss.Width(ui.HelpStyle.Render("?"))
 	helpY := 0
 	if m.ui.width < helpReflowWidth {
@@ -58,7 +61,8 @@ func (m *model) handleMouseLeft(msg tea.MouseMsg) tea.Cmd {
 	}
 	cmd := m.focusFromMouse(msg.Y)
 	if m.isHistoryFocused() && !m.history.ShowArchived() {
-		m.history.HandleClick(msg, m.ui.elemPos[idHistory], m.ui.viewport.YOffset)
+		contentMsg := m.clientContentMouseMsg(msg)
+		m.history.HandleClick(contentMsg, m.ui.elemPos[idHistory], 0)
 	}
 	helpWidth := lipgloss.Width(ui.HelpStyle.Render("?"))
 	helpY := 0
@@ -83,6 +87,7 @@ func (m *model) handleMouse(msg tea.MouseMsg) tea.Cmd {
 
 // handleClientMouse processes mouse events in client mode.
 func (m *model) handleClientMouse(msg tea.MouseMsg) tea.Cmd {
+	m.updateHoverState(msg)
 	cmd, handled := m.handleMouseScroll(msg)
 	if handled {
 		return cmd
@@ -102,7 +107,8 @@ func (m *model) handleClientMouse(msg tea.MouseMsg) tea.Cmd {
 		}
 	}
 	if msg.Type == tea.MouseLeft || msg.Type == tea.MouseRight {
-		if cmd := m.topics.HandleClick(msg, m.ui.viewport.YOffset); cmd != nil {
+		contentMsg := m.clientContentMouseMsg(msg)
+		if cmd := m.topics.HandleClick(contentMsg, 0); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 	}

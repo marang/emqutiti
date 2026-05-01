@@ -1,9 +1,11 @@
 package emqutiti
 
 import (
+	"errors"
 	"fmt"
 	connections "github.com/marang/emqutiti/connections"
 	mqttclient "github.com/marang/emqutiti/mqttclient"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -25,6 +27,9 @@ type MQTTClient struct {
 	publishTimeout     time.Duration
 	subscribeTimeout   time.Duration
 	unsubscribeTimeout time.Duration
+	done               chan struct{}
+	closeOnce          sync.Once
+	mu                 sync.RWMutex
 }
 
 // waitToken blocks until the MQTT token completes or the timeout expires.
@@ -85,12 +90,16 @@ func NewMQTTClient(p connections.Profile, fn statusFunc) (*MQTTClient, error) {
 	}
 
 	msgChan := make(chan MQTTMessage, 20)
+	done := make(chan struct{})
+	mc := &MQTTClient{MessageChan: msgChan, done: done}
 	opts.SetDefaultPublishHandler(func(client mqtt.Client, m mqtt.Message) {
-		msgChan <- MQTTMessage{Topic: m.Topic(), Payload: string(m.Payload()), Retained: m.Retained()}
+		_ = mc.enqueueMessage(m, fn)
 	})
 
 	client := mqtt.NewClient(opts)
+	mc.Client = client
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		mc.Disconnect()
 		return nil, fmt.Errorf("failed to connect: %w", token.Error())
 	}
 
@@ -98,13 +107,10 @@ func NewMQTTClient(p connections.Profile, fn statusFunc) (*MQTTClient, error) {
 	subTimeout := time.Duration(p.SubscribeTimeout) * time.Second
 	unsubTimeout := time.Duration(p.UnsubscribeTimeout) * time.Second
 
-	return &MQTTClient{
-		Client:             client,
-		MessageChan:        msgChan,
-		publishTimeout:     pubTimeout,
-		subscribeTimeout:   subTimeout,
-		unsubscribeTimeout: unsubTimeout,
-	}, nil
+	mc.publishTimeout = pubTimeout
+	mc.subscribeTimeout = subTimeout
+	mc.unsubscribeTimeout = unsubTimeout
+	return mc, nil
 }
 
 // Publish sends the payload to the given topic using the underlying client.
@@ -138,8 +144,44 @@ func (m *MQTTClient) Disconnect() {
 		m.Client.Disconnect(250)
 	}
 	// Close MessageChan after disconnecting to stop message delivery.
-	if m.MessageChan != nil {
-		close(m.MessageChan)
-		m.MessageChan = nil
+	m.closeOnce.Do(func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if m.done != nil {
+			close(m.done)
+		}
+		if m.MessageChan != nil {
+			close(m.MessageChan)
+			m.MessageChan = nil
+		}
+	})
+}
+
+func (m *MQTTClient) safeMessageChan() chan MQTTMessage {
+	if m == nil {
+		return nil
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.MessageChan
+}
+
+func (m *MQTTClient) enqueueMessage(msg mqtt.Message, fn statusFunc) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.MessageChan == nil {
+		return errors.New("message channel is closed")
+	}
+	out := MQTTMessage{Topic: msg.Topic(), Payload: string(msg.Payload()), Retained: msg.Retained()}
+	select {
+	case <-m.done:
+		return errors.New("message channel is closed")
+	case m.MessageChan <- out:
+		return nil
+	default:
+		if fn != nil {
+			fn(fmt.Sprintf("Dropped MQTT message on %s: message buffer full", msg.Topic()))
+		}
+		return nil
 	}
 }

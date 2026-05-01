@@ -109,6 +109,7 @@ func (m *model) handleDisconnectKey() tea.Cmd {
 			m.connections.Connection = ""
 			m.connections.Active = ""
 			m.mqttClient = nil
+			m.ui.listeners.mqtt = false
 			return func() tea.Msg { return reconnectPromptMsg(name) }
 		},
 		nil,
@@ -136,18 +137,7 @@ func (m *model) publishMessage(retained bool) {
 		return
 	}
 	payload := m.message.Input().Value()
-	var targets []string
-	for _, t := range m.topics.Items {
-		if t.Publish {
-			targets = append(targets, t.Name)
-		}
-	}
-	if len(targets) == 0 {
-		sel := m.topics.Selected()
-		if sel >= 0 && sel < len(m.topics.Items) {
-			targets = append(targets, m.topics.Items[sel].Name)
-		}
-	}
+	targets := m.publishTargets()
 	for _, topic := range targets {
 		m.payloads.Add(topic, payload)
 		msg := fmt.Sprintf("Published to %s: %s", topic, payload)
@@ -163,14 +153,28 @@ func (m *model) publishMessage(retained bool) {
 
 // handlePublishKey publishes the current message without the retained flag.
 func (m *model) handlePublishKey() tea.Cmd {
+	if m.ui.focusOrder[m.ui.focusIndex] != idMessage {
+		return nil
+	}
+	targets := m.publishTargets()
+	if len(targets) == 0 {
+		return nil
+	}
 	m.publishMessage(false)
-	return nil
+	return tea.Batch(m.startTopicPulses(targets), m.startHistoryPulse())
 }
 
 // handlePublishRetainKey publishes the current message with the retained flag.
 func (m *model) handlePublishRetainKey() tea.Cmd {
+	if m.ui.focusOrder[m.ui.focusIndex] != idMessage {
+		return nil
+	}
+	targets := m.publishTargets()
+	if len(targets) == 0 {
+		return nil
+	}
 	m.publishMessage(true)
-	return nil
+	return tea.Batch(m.startTopicPulses(targets), m.startHistoryPulse())
 }
 
 // handleDeleteKey dispatches deletion based on focus.

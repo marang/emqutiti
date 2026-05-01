@@ -88,6 +88,9 @@ func (m *model) handleClientMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return m.handleStatusMessage(t), true
 	case MQTTMessage:
 		return m.handleMQTTMessage(t), true
+	case mqttListenClosedMsg:
+		m.ui.listeners.mqtt = false
+		return nil, true
 	case reconnectPromptMsg:
 		m.SetMode(constants.ModeConnections)
 		var p connections.Profile

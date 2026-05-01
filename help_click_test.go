@@ -20,6 +20,16 @@ func TestHelpIconClick(t *testing.T) {
 	}
 }
 
+func TestHelpIconHoverDoesNotOpenHelp(t *testing.T) {
+	m, _ := initialModel(nil)
+	m.ui.width = helpReflowWidth - 20
+	msg := tea.MouseMsg{X: m.ui.width - 1, Y: 1, Type: tea.MouseMotion, Action: tea.MouseActionMotion}
+	m.Update(msg)
+	if m.CurrentMode() == constants.ModeHelp {
+		t.Fatalf("hover should not open help")
+	}
+}
+
 // Test that the help icon reflows to the second line when space is limited.
 func TestHelpIconReflows(t *testing.T) {
 	m, _ := initialModel(nil)

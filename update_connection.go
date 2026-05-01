@@ -22,15 +22,17 @@ func connectBroker(p connections.Profile, fn statusFunc) tea.Cmd {
 	}
 }
 
+type mqttListenClosedMsg struct{}
+
 // listenMessages waits for incoming MQTT messages on the provided channel.
 func listenMessages(ch chan MQTTMessage) tea.Cmd {
 	return func() tea.Msg {
 		if ch == nil {
-			return nil
+			return mqttListenClosedMsg{}
 		}
 		msg, ok := <-ch
 		if !ok {
-			return nil
+			return mqttListenClosedMsg{}
 		}
 		return msg
 	}

@@ -8,5 +8,7 @@ type Model interface {
 	Width() int
 	MessageHeight() int
 	FocusedID() string
+	HoveredID() string
+	MessageTargetPreview() string
 	OverlayHelp(view string) string
 }

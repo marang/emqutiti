@@ -21,8 +21,18 @@ func (m *model) updateClientInputs(msg tea.Msg) []tea.Cmd {
 		cmds = append(cmds, vpCmd)
 	}
 	if m.FocusedID() == idHistory {
+		oldScroll := -1.0
+		animateScroll := isHistoryKeyboardScrollMsg(msg)
+		if animateScroll {
+			oldScroll = m.rawHistoryScrollPercent()
+		}
 		if histCmd := m.history.Update(msg); histCmd != nil {
 			cmds = append(cmds, histCmd)
+		}
+		if animateScroll {
+			if scrollCmd := m.startHistoryScrollAnimation(oldScroll, m.rawHistoryScrollPercent()); scrollCmd != nil {
+				cmds = append(cmds, scrollCmd)
+			}
 		}
 	}
 	return cmds
@@ -31,6 +41,11 @@ func (m *model) updateClientInputs(msg tea.Msg) []tea.Cmd {
 // updateViewport updates the main viewport unless history handles the scroll.
 func (m *model) updateViewport(msg tea.Msg) tea.Cmd {
 	skipVP := false
+	if m.FocusedID() == idTopic || m.FocusedID() == idMessage {
+		if _, ok := msg.(tea.KeyMsg); ok {
+			skipVP = true
+		}
+	}
 	if m.FocusedID() == idHistory {
 		switch mt := msg.(type) {
 		case tea.KeyMsg:

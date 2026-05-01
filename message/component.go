@@ -3,6 +3,7 @@ package message
 import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/marang/emqutiti/focus"
 	"github.com/marang/emqutiti/ui"
@@ -53,7 +54,12 @@ func (c *Component) View() string {
 		}
 	}
 	focused := c.m.FocusedID() == ID
-	return ui.LegendBox(msgContent, "Message (Ctrl+S publishes, Ctrl+E retains)", c.m.Width()-2, msgHeight, ui.ColBlue, focused, msgSP)
+	hovered := c.m.HoveredID() == ID
+	label := c.m.MessageTargetPreview()
+	if maxLabel := c.m.Width() - 6; maxLabel > 0 {
+		label = ansi.Truncate(label, maxLabel, "…")
+	}
+	return ui.LegendBoxWithState(msgContent, label, c.m.Width()-2, msgHeight, ui.ColBlue, ui.BoxState{Focused: focused, Hovered: hovered}, msgSP)
 }
 
 func (c *Component) Focus() tea.Cmd { return c.TA.Focus() }

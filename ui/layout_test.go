@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 // TestLegendBoxLayouts renders LegendBox at various sizes to ensure it
@@ -90,5 +91,18 @@ func TestLegendBoxTextFieldFocused(t *testing.T) {
 	right := lipgloss.NewStyle().Foreground(ColGreen).Render(b.Right)
 	if !strings.HasSuffix(content, right) {
 		t.Fatalf("missing right border: %q", content)
+	}
+}
+
+func TestLegendBoxFocusWinsOverHover(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	normal := LegendBoxWithState("body", "Lbl", 20, 1, ColGreen, BoxState{}, -1)
+	hovered := LegendBoxWithState("body", "Lbl", 20, 1, ColGreen, BoxState{Hovered: true}, -1)
+	focused := LegendBoxWithState("body", "Lbl", 20, 1, ColGreen, BoxState{Focused: true, Hovered: true}, -1)
+	if normal != hovered {
+		t.Fatalf("hover should not visually change the box")
+	}
+	if focused == normal {
+		t.Fatalf("focused box should differ from normal")
 	}
 }

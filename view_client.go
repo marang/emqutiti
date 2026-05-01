@@ -27,6 +27,9 @@ func (m *model) clientInfoLine() string {
 	} else if strings.HasPrefix(m.connections.Connection, "Connecting") {
 		// Keep subtle style for connecting state.
 		st = ui.InfoSubtleStyle
+		if frame := m.connectingFrame(); frame != "" {
+			status = frame + " " + status
+		}
 	} else {
 		// Disconnected, connection lost, or failed.
 		st = st.Foreground(ui.ColWarn)
@@ -78,12 +81,17 @@ func (m *model) viewClient() string {
 	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	box := lipgloss.NewStyle().Width(m.ui.width).Padding(0, 1, 1, 1).Render(content)
+	contextHelp := m.renderContextHelp()
 	m.ui.viewport.SetContent(box)
 	m.ui.viewport.Width = m.ui.width
-	// Deduct two lines for the info header.
-	m.ui.viewport.Height = m.ui.height - 2
+	// Deduct the global shortcut header, connection status line, and top
+	// context help so the hint remains fixed while the main content scrolls.
+	m.ui.viewport.Height = m.ui.height - 2 - contextHelpHeight(contextHelp)
+	if m.ui.viewport.Height < 1 {
+		m.ui.viewport.Height = 1
+	}
 
 	view := m.ui.viewport.View()
-	contentView := lipgloss.JoinVertical(lipgloss.Left, statusLine, view)
+	contentView := lipgloss.JoinVertical(lipgloss.Left, statusLine, contextHelp, view)
 	return m.overlayHelp(contentView)
 }

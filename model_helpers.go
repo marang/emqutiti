@@ -14,8 +14,23 @@ import (
 // FocusedID returns the identifier of the currently focused element.
 func (m *model) FocusedID() string { return m.ui.focusOrder[m.ui.focusIndex] }
 
+// HoveredID returns the identifier of the element currently under the mouse.
+func (m *model) HoveredID() string { return m.ui.hoveredID }
+
+// MessageTargetPreview returns a compact label for the message publish target.
+func (m *model) MessageTargetPreview() string { return m.messageTargetPreview() }
+
+func (m *model) topicIndexByName(name string) int {
+	for i, t := range m.topics.Items {
+		if t.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
 // ListenStatus proxies connection status updates for components.
-func (m *model) ListenStatus() tea.Cmd { return m.connections.ListenStatus() }
+func (m *model) ListenStatus() tea.Cmd { return m.listenStatusOnce() }
 
 // ResetElemPos clears cached element positions.
 func (m *model) ResetElemPos() { m.ui.elemPos = map[string]int{} }

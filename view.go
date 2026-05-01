@@ -52,6 +52,8 @@ func (m *model) overlayHelp(view string) string {
 	help := ui.HelpStyle.Render("?")
 	if m.help.Focused() {
 		help = ui.HelpFocused.Render("?")
+	} else if m.ui.hoveredID == idHelp {
+		help = ui.HelpHovered.Render("?")
 	}
 	m.ui.elemPos[idHelp] = 0
 

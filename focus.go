@@ -14,7 +14,7 @@ func (m *model) SetFocus(id string) tea.Cmd {
 
 // focusFromMouse determines which element was clicked and focuses it.
 func (m *model) focusFromMouse(y int) tea.Cmd {
-	cy := y + m.ui.viewport.YOffset - 1
+	cy := m.clientContentY(y)
 	chosen := ""
 	maxPos := -1
 	for _, id := range m.ui.focusOrder {

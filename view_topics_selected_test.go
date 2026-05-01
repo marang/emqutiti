@@ -10,7 +10,7 @@ import (
 
 func TestSelectedTopicWrapsLongName(t *testing.T) {
 	longName := strings.Repeat("x", 50)
-	chips := renderTopicChips([]topics.Item{{Name: longName, Subscribed: true}}, 0, 20)
+	chips := renderTopicChips([]topics.Item{{Name: longName, Subscribed: true}}, 0, -1, 20)
 	stripped := ansi.Strip(chips[0])
 	if strings.Contains(stripped, "…") {
 		t.Fatalf("expected no ellipsis for selected topic")
@@ -23,7 +23,7 @@ func TestSelectedTopicWrapsLongName(t *testing.T) {
 func TestUnselectedTopicTruncated(t *testing.T) {
 	longName := strings.Repeat("x", 50)
 	items := []topics.Item{{Name: "short", Subscribed: true}, {Name: longName, Subscribed: true}}
-	chips := renderTopicChips(items, 0, 20)
+	chips := renderTopicChips(items, 0, -1, 20)
 	if !strings.Contains(ansi.Strip(chips[1]), "…") {
 		t.Fatalf("expected truncated chip for unselected topic")
 	}
@@ -31,7 +31,7 @@ func TestUnselectedTopicTruncated(t *testing.T) {
 
 func TestSelectedTopicWrapsWide(t *testing.T) {
 	longName := strings.Repeat("x", maxTopicChipWidth+10)
-	chips := renderTopicChips([]topics.Item{{Name: longName, Subscribed: true}}, 0, 120)
+	chips := renderTopicChips([]topics.Item{{Name: longName, Subscribed: true}}, 0, -1, 120)
 	stripped := ansi.Strip(chips[0])
 	if strings.Contains(stripped, "…") {
 		t.Fatalf("expected no ellipsis for selected topic")

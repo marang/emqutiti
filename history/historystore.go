@@ -16,6 +16,8 @@ import (
 
 var proxyAddr string
 
+const proxyRPCTimeout = 5 * time.Second
+
 // SetProxyAddr configures the DB proxy address.
 func SetProxyAddr(addr string) { proxyAddr = addr }
 
@@ -24,6 +26,10 @@ func addr() string {
 		return proxyAddr
 	}
 	return connections.LoadProxyAddr()
+}
+
+func proxyContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), proxyRPCTimeout)
 }
 
 // Message holds a timestamped MQTT message with optional payload text.
@@ -60,7 +66,9 @@ func openStore(profile string) (Store, error) {
 		return nil, err
 	}
 	idx := &store{cl: cl, conn: conn, profile: profile}
-	resp, err := cl.Read(context.Background(), &proxy.ReadRequest{Profile: profile, Bucket: "history", Key: ""})
+	ctx, cancel := proxyContext()
+	defer cancel()
+	resp, err := cl.Read(ctx, &proxy.ReadRequest{Profile: profile, Bucket: "history", Key: ""})
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -95,7 +103,9 @@ func (i *store) Append(msg Message) error {
 		if err != nil {
 			return err
 		}
-		if _, err := i.cl.Write(context.Background(), &proxy.WriteRequest{Profile: i.profile, Bucket: "history", Key: key, Value: val}); err != nil {
+		ctx, cancel := proxyContext()
+		defer cancel()
+		if _, err := i.cl.Write(ctx, &proxy.WriteRequest{Profile: i.profile, Bucket: "history", Key: key, Value: val}); err != nil {
 			return err
 		}
 	}
@@ -109,7 +119,9 @@ func (i *store) Delete(key string) error {
 	defer i.mu.Unlock()
 
 	if i.cl != nil {
-		if _, err := i.cl.Delete(context.Background(), &proxy.DeleteRequest{Profile: i.profile, Bucket: "history", Key: key}); err != nil {
+		ctx, cancel := proxyContext()
+		defer cancel()
+		if _, err := i.cl.Delete(ctx, &proxy.DeleteRequest{Profile: i.profile, Bucket: "history", Key: key}); err != nil {
 			return err
 		}
 	}
@@ -139,7 +151,9 @@ func (i *store) Archive(key string) error {
 				if err != nil {
 					return err
 				}
-				if _, err := i.cl.Write(context.Background(), &proxy.WriteRequest{Profile: i.profile, Bucket: "history", Key: key, Value: val}); err != nil {
+				ctx, cancel := proxyContext()
+				defer cancel()
+				if _, err := i.cl.Write(ctx, &proxy.WriteRequest{Profile: i.profile, Bucket: "history", Key: key, Value: val}); err != nil {
 					return err
 				}
 			}

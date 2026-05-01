@@ -87,8 +87,10 @@ func (m *model) handleTogglePublishKey() tea.Cmd {
 	if m.ui.focusOrder[m.ui.focusIndex] == idTopics {
 		sel := m.topics.Selected()
 		if sel >= 0 && sel < len(m.topics.Items) {
+			name := m.topics.Items[sel].Name
 			m.topics.TogglePublish(sel)
 			m.topics.EnsureVisible(m.ui.width - 4)
+			return m.startTopicPulse(name)
 		}
 	}
 	return nil

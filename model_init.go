@@ -141,7 +141,7 @@ func (m *model) applySavedLayout(profile string) {
 
 // Init enables initial Tea behavior such as mouse support.
 func (m *model) Init() tea.Cmd {
-	cmds := []tea.Cmd{tea.EnableMouseCellMotion}
+	cmds := []tea.Cmd{tea.EnableMouseAllMotion}
 	if profileName == "" {
 		if name := m.connections.Manager.DefaultProfileName; name != "" {
 			for _, p := range m.connections.Manager.Profiles {

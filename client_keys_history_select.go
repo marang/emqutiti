@@ -24,6 +24,7 @@ func (m *model) handleSpaceKey() tea.Cmd {
 // handleShiftUpKey extends selection upward in history.
 func (m *model) handleShiftUpKey() tea.Cmd {
 	if m.ui.focusOrder[m.ui.focusIndex] == idHistory && !m.history.ShowArchived() {
+		oldScroll := m.rawHistoryScrollPercent()
 		if m.history.SelectionAnchor() == -1 {
 			m.history.SetSelectionAnchor(m.history.List().Index())
 			if a := m.history.SelectionAnchor(); a >= 0 && a < len(m.history.Items()) {
@@ -38,6 +39,7 @@ func (m *model) handleShiftUpKey() tea.Cmd {
 			idx := m.history.List().Index()
 			m.history.UpdateSelectionRange(idx)
 		}
+		return m.startHistoryScrollAnimation(oldScroll, m.rawHistoryScrollPercent())
 	}
 	return nil
 }
@@ -45,6 +47,7 @@ func (m *model) handleShiftUpKey() tea.Cmd {
 // handleShiftDownKey extends selection downward in history.
 func (m *model) handleShiftDownKey() tea.Cmd {
 	if m.ui.focusOrder[m.ui.focusIndex] == idHistory && !m.history.ShowArchived() {
+		oldScroll := m.rawHistoryScrollPercent()
 		if m.history.SelectionAnchor() == -1 {
 			m.history.SetSelectionAnchor(m.history.List().Index())
 			if a := m.history.SelectionAnchor(); a >= 0 && a < len(m.history.Items()) {
@@ -59,6 +62,7 @@ func (m *model) handleShiftDownKey() tea.Cmd {
 			idx := m.history.List().Index()
 			m.history.UpdateSelectionRange(idx)
 		}
+		return m.startHistoryScrollAnimation(oldScroll, m.rawHistoryScrollPercent())
 	}
 	return nil
 }

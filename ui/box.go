@@ -8,12 +8,24 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// BoxState describes the interaction state used to render a LegendBox.
+type BoxState struct {
+	Focused bool
+	Hovered bool
+}
+
 // LegendBox renders a bordered box with a label and optional height.
 // The border color can be customized, and when focused the border
 // is highlighted in pink.
 func LegendBox(content, label string, width, height int, border lipgloss.Color, focused bool, scroll float64) string {
+	return LegendBoxWithState(content, label, width, height, border, BoxState{Focused: focused}, scroll)
+}
+
+// LegendBoxWithState renders a LegendBox using focus and hover state. Focus
+// wins over hover so keyboard focus remains the strongest visual signal.
+func LegendBoxWithState(content, label string, width, height int, border lipgloss.Color, state BoxState, scroll float64) string {
 	col := border
-	if focused {
+	if state.Focused {
 		col = ColPink
 	}
 	return legendStyledBox(content, label, width, height, col, scroll)

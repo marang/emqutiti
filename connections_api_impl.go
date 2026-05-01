@@ -74,6 +74,7 @@ func (m *model) BeginDelete(index int) {
 }
 func (m *model) Connect(p connections.Profile) tea.Cmd {
 	m.connections.FlushStatus()
+	m.ui.listeners.mqtt = false
 	if p.FromEnv {
 		connections.ApplyEnvVars(&p)
 	}
@@ -82,9 +83,10 @@ func (m *model) Connect(p connections.Profile) tea.Cmd {
 	brokerURL := fmt.Sprintf("%s://%s:%d", p.Schema, p.Host, p.Port)
 	m.connections.Connection = "Connecting to " + brokerURL
 	m.RefreshConnectionItems()
-	return connectBroker(p, m.connections.SendStatus)
+	return tea.Batch(connectBroker(p, m.connections.SendStatus), m.startAnimationTick())
 }
 func (m *model) HandleConnectResult(msg connections.ConnectResult) {
+	m.ui.listeners.mqtt = false
 	profile := msg.Profile
 	brokerURL := fmt.Sprintf("%s://%s:%d", profile.Schema, profile.Host, profile.Port)
 	if err := msg.Err; err != nil {
@@ -133,6 +135,7 @@ func (m *model) DisconnectActive() {
 		m.connections.Connection = ""
 		m.connections.Active = ""
 		m.mqttClient = nil
+		m.ui.listeners.mqtt = false
 	}
 }
 func (m *model) ResizeTraces(width, height int) { m.traces.List().SetSize(width, height) }

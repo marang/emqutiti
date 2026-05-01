@@ -168,14 +168,17 @@ func (h *Component) appendItems(items ...Item) {
 		return
 	}
 	if h.filterQuery != "" {
+		if h.store == nil {
+			return
+		}
 		var listItems []list.Item
 		h.items, listItems = ApplyFilter(h.filterQuery, h.store, h.showArchived)
-		h.items = append(h.items, items...)
-		for _, it := range items {
-			listItems = append(listItems, it)
-		}
 		h.list.SetItems(listItems)
-		h.list.Select(len(listItems) - 1)
+		if len(listItems) > 0 {
+			h.list.Select(len(listItems) - 1)
+		} else {
+			h.list.Select(-1)
+		}
 		return
 	}
 	h.items = append(h.items, items...)

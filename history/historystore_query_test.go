@@ -99,3 +99,34 @@ func TestApplyFilterArchived(t *testing.T) {
 		t.Fatalf("expected 1 archived item, got %v", items)
 	}
 }
+
+func TestAppendWhileFilteredUsesFilteredStoreResults(t *testing.T) {
+	hs := &store{}
+	h := NewComponent(stubModel{}, hs)
+	h.filterQuery = "payload=match"
+	ts := time.Now()
+	if err := hs.Append(Message{Timestamp: ts, Topic: "t1", Payload: "match", Kind: "pub"}); err != nil {
+		t.Fatalf("Append failed: %v", err)
+	}
+
+	h.Append("t1", "match", "pub", false, "match")
+
+	if got := len(h.Items()); got != 2 {
+		t.Fatalf("expected two matching items without duplicate append, got %d: %#v", got, h.Items())
+	}
+	if h.Items()[0].Timestamp.Equal(h.Items()[1].Timestamp) {
+		t.Fatalf("expected distinct stored matching items, got duplicate timestamps")
+	}
+}
+
+func TestAppendWhileFilteredExcludesNonMatchingMessage(t *testing.T) {
+	hs := &store{}
+	h := NewComponent(stubModel{}, hs)
+	h.filterQuery = "payload=match"
+
+	h.Append("t1", "miss", "pub", false, "miss")
+
+	if got := len(h.Items()); got != 0 {
+		t.Fatalf("expected non-matching append hidden by active filter, got %d: %#v", got, h.Items())
+	}
+}
