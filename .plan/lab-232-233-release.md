@@ -15,9 +15,9 @@
 - [x] LAB-233 implementation, protocol tests and retained adapter review fixes.
 - [x] Update shared docs and complete independent review.
 - [x] Run vet, full tests, race suite, build and visual/live terminal checks.
-- [ ] Commit and merge the reviewed work into main; push main.
-- [ ] Close the three Linear tickets with implementation/verification evidence.
-- [ ] Create release tag and verify GitHub release workflows/assets.
+- [x] Commit and merge the reviewed work into main; push main.
+- [x] Close the three Linear tickets with implementation/verification evidence.
+- [x] Create release tag and verify GitHub release workflows/assets.
 
 ## Resize Decisions
 
@@ -119,3 +119,26 @@
   at symbol, package or module level; final full normal tests passed (root 43.197s).
 - Final exact-toolchain full race tests passed (root 53.552s), as did the build,
   Darwin/Windows cross-builds and isolated live PTY smoke on the updated binary.
+
+## Publication
+
+- TUI implementation: `92c127463d7115577a157f53844ae50ef5451f84`.
+- Final reviewed security/release code: `f617a86d692578c68da7eccb6b4846081ed88f3c`.
+- Both topic branches were fast-forward merged to main and pushed.
+- [Final main CI](https://github.com/marang/emqutiti/actions/runs/37115300521)
+  passed; GitHub reports zero open Dependabot alerts.
+- LAB-226, LAB-232 and LAB-233 are Done, with implementation/review/test evidence
+  recorded in Linear before the release tag was created.
+- Annotated tag `v0.7.12` points to the final reviewed code commit.
+- [Release workflow](https://github.com/marang/emqutiti/actions/runs/37115520564)
+  passed, including GoReleaser and Flatpak; the
+  [AUR workflow](https://github.com/marang/emqutiti/actions/runs/37115520409) passed.
+- [Published release](https://github.com/marang/emqutiti/releases/tag/v0.7.12)
+  is public, non-draft/non-prerelease, with twelve assets and curated notes.
+- Downloaded all ten archives/Linux packages and verified every published
+  checksum. The Flatpak bundle additionally matches its GitHub SHA-256 digest.
+- All six archived platform binaries carry Go 1.26.8, the correct release
+  version flag and patched gRPC/x/net/compress dependencies. The downloaded
+  Linux amd64 binary prints `0.7.12`; its binary-mode govulncheck is also clean.
+- This completion record is a documentation-only follow-up after publication;
+  the release tag stays on the reviewed code commit above.

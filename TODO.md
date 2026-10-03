@@ -48,7 +48,7 @@ This file tracks planned improvements for Emqutiti.
 - [x] Debian/Ubuntu package (`.deb` via GoReleaser)
 - [x] Fedora RPM (`.rpm` via GoReleaser)
 - [ ] Homebrew formula for macOS users
-- [ ] Flatpak package
+- [x] Flatpak package
 
 ## Documentation
 - [x] Include a VHS GIF in the README
