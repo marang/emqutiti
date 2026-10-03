@@ -21,6 +21,12 @@ This file tracks planned improvements for Emqutiti.
 - [x] LAB-233: distinct terminal Ctrl+Enter publish input and input framing
 - [x] Publish only on modified Enter: Ctrl normally, Ctrl+Shift retained; macOS Cmd equivalents
 - [x] Update publish hints, help and terminal compatibility; remove old send bindings
+- [x] Request modified-key encoding during the TUI and restore it on screen exit
+- [x] Reproduce modified Enter via PTY negotiation and preserve ordinary shortcuts
+- [x] Preserve layout-aware Alt+Shift editor navigation with alternate key reporting
+- [x] Restore outstanding keyboard mode pushes on startup failures without double-pop
+- [x] Explain clearing retained values with an empty retained publish
+- [x] Verify empty retained clearing versus normal empty publishing on a local broker
 - [x] Keep publish/retained/newline shortcuts in a responsive Message footer
 - [x] Preserve additive History mouse/Space selection and marks during filter refreshes
 - [ ] Refine vertical stacking on very narrow terminals

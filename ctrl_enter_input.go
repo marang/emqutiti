@@ -80,6 +80,9 @@ func (r *ctrlEnterInputReader) filter(_ tea.Model, msg tea.Msg) tea.Msg {
 		if event, ok := decodeShiftedSpace(raw); ok {
 			return event
 		}
+		if key, ok := decodeKittyKey(raw); ok {
+			return key
+		}
 	}
 	v := reflect.ValueOf(msg)
 	copy := reflect.MakeSlice(v.Type(), v.Len(), v.Len())

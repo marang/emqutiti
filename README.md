@@ -233,12 +233,21 @@ Publishing uses only modified Enter in the focused Message editor:
 On macOS, `Cmd+Enter` and `Cmd+Shift+Enter` are the equivalents.
 `Ctrl+S` and `Ctrl+E` no longer publish. The input adapter supports Linux and
 macOS TTY input with distinct terminal sequences; plain `Enter` stays a newline.
-If a terminal sends Enter for both shortcuts, configure a distinct key mapping.
+With terminal input and output, Emqutiti requests Kitty keyboard disambiguation
+and layout-aware shifted keys while the fullscreen TUI is active and restores
+the previous mode on exit, including startup failures. Supporting terminals
+distinguish modified Enter without extra configuration. If the terminal or
+multiplexer does not support this protocol,
+configure a distinct key mapping.
 Other input platforms currently cannot publish via these shortcuts.
-Emqutiti does not enable a new keyboard protocol or change terminal settings. See
+Emqutiti does not change your terminal configuration. See
 [terminal shortcut compatibility](help/help.md#terminal-shortcut-compatibility).
 
 Retained messages are labeled "(retained)".
+To remove a retained value, select its topic as the publish target, completely
+empty the Message editor (no spaces or newlines) and publish retained.
+This clears retained values for all publish targets shown in the Message title;
+normal publishing does not clear them, and local history stays unchanged.
 In history filters, `Tab` / `Shift+Tab` moves between fields, `PgUp` /
 `PgDown` or the mouse wheel scrolls, `Enter` applies and `Esc` cancels.
 Full details wrap the complete payload for scrolling; `Ctrl+C` copies it

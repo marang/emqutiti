@@ -48,6 +48,11 @@ the hovered area or keyboard focus. Hover does not change colors.
   `Cmd+Shift+Enter`; the Ctrl combinations also work. Publishing goes to all
   marked targets or, if none are marked, the selected topic. Plain `Enter`
   inserts a newline. `Ctrl+S` and `Ctrl+E` no longer publish.
+- To clear retained values, select the intended publish targets, delete all
+  Message content and publish retained. The payload must contain zero bytes,
+  with no spaces or newlines. This affects every target shown in the Message
+  title, not previously delivered messages or local history. An empty normal
+  publish does not clear retained values.
 - The Message footer keeps publish, retained and newline shortcuts visible,
   even while another area is focused. It wraps on narrow terminals without
   reducing the configured number of editor rows.
@@ -82,8 +87,17 @@ never become publish commands. If a terminal sends the same bytes for ordinary
 and modified Enter, both insert a newline until a distinct key mapping is set.
 `Ctrl+S` and `Ctrl+E` no longer publish and are not fallbacks.
 
-The app leaves keyboard protocol modes unchanged. A terminal-specific mapping
-can emit a distinct key without changing other keys. For example, Kitty:
+On Linux/macOS with terminal input and output, the fullscreen TUI requests
+Kitty keyboard disambiguation and alternate keys (`CSI >5u`) after entering the
+alternate screen. The reported shifted characters preserve `Alt+Shift` editor
+shortcuts such as `Alt+<` and `Alt+>` across keyboard layouts.
+It restores the previous mode (`CSI <u`) before leaving that screen, including
+on cancellation, startup failures or temporary terminal release. Ctrl/Alt
+shortcuts, Escape, Shift+Tab and keypad text keep their existing behavior. The app does not
+change your terminal configuration.
+
+If the terminal or multiplexer does not support this protocol, a
+terminal-specific mapping can emit distinct keys. For example, Kitty:
 
 ```conf
 map ctrl+enter send_text normal,application \x1b[13;5u
