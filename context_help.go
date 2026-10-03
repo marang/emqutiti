@@ -2,6 +2,7 @@ package emqutiti
 
 import (
 	"fmt"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -234,21 +235,25 @@ func (m *model) contextHelpDetailText() string {
 		if m.pendingPublishes() > 0 {
 			return "Waiting for MQTT result | Draft remains editable"
 		}
+		if !m.ui.modifiedKeyInput {
+			return "Publish keys need terminal support"
+		}
+		normal, retained := publishShortcutNames(runtime.GOOS)
 		if !m.isConnected() {
-			full := "[Ctrl+B] brokers | [Ctrl+S] reports disconnected"
+			full := "[Ctrl+B] brokers | [" + normal + "] reports disconnected"
 			if lipgloss.Width(full) <= m.ui.width-4 {
 				return full
 			}
-			return "[Ctrl+B] brokers  [Ctrl+S] offline"
+			return "[Ctrl+B] broker [" + normal + "] offline"
 		}
 		if len(m.publishTargets()) == 0 {
 			return "Select or add a topic before publishing"
 		}
-		full := "[Ctrl+S]/[Ctrl+Enter*] publish  [Ctrl+E] retained"
-		if m.ui.modifiedKeyInput && lipgloss.Width(full) <= m.ui.width-4 {
+		full := publishShortcutHint(runtime.GOOS)
+		if lipgloss.Width(full) <= m.ui.width-4 {
 			return full
 		}
-		return "[Ctrl+S] publish  [Ctrl+E] retained"
+		return "[" + normal + "] / [" + retained + "]"
 	case idHistory:
 		full := "[Enter] details  [/] filter  [Ctrl+C] copy"
 		if lipgloss.Width(full) <= m.ui.width-4 {

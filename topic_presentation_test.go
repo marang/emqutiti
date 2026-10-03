@@ -16,14 +16,14 @@ import (
 	"github.com/muesli/termenv"
 )
 
-func TestPublishChipEntireFrameAndCyanSubscription(t *testing.T) {
+func TestPublishChipInteriorFillAndCyanSubscription(t *testing.T) {
 	profile := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(profile) })
 	lipgloss.SetColorProfile(termenv.ANSI256)
 	item := topics.Item{Name: "read/write", Subscribed: true, Publish: true}
 	view := renderTopicChips([]topics.Item{item}, 0, -1, 80)[0]
 	var bg, underlineColor color.Color
-	underlined, x, painted, letters := false, 0, 0, 0
+	underlined, x, y, painted, letters := false, 0, 0, 0, 0
 	pinkR, pinkG, pinkB, _ := ui.ColPink.RGBA()
 	cyanR, cyanG, cyanB, _ := ui.ColCyan.RGBA()
 	width := lipgloss.Width(view) - 1 // The right margin is not part of the chip.
@@ -55,10 +55,11 @@ func TestPublishChipEntireFrameAndCyanSubscription(t *testing.T) {
 		Execute: func(b byte) {
 			if b == '\n' {
 				x = 0
+				y++
 			}
 		},
 		Print: func(r rune) {
-			if x < width {
+			if x > 0 && x < width-1 && y == 1 {
 				if bg == nil {
 					t.Fatalf("chip cell %d (%q) has no pink background", x, r)
 				}
@@ -67,6 +68,8 @@ func TestPublishChipEntireFrameAndCyanSubscription(t *testing.T) {
 					t.Fatalf("chip cell %d (%q) background is not pink", x, r)
 				}
 				painted++
+			} else if bg != nil {
+				t.Fatalf("border/margin cell (%d,%d) (%q) has a background", x, y, r)
 			}
 			if strings.ContainsRune(item.Name, r) {
 				if !underlined || underlineColor == nil {
@@ -86,8 +89,133 @@ func TestPublishChipEntireFrameAndCyanSubscription(t *testing.T) {
 	for _, b := range []byte(view) {
 		p.Advance(b)
 	}
-	if painted != width*3 || letters != len(item.Name) {
-		t.Fatalf("painted=%d letters=%d, want %d/%d", painted, letters, width*3, len(item.Name))
+	if painted != width-2 || letters != len(item.Name) {
+		t.Fatalf("painted=%d letters=%d, want %d/%d", painted, letters, width-2, len(item.Name))
+	}
+}
+
+func TestTopicLegendUsesConsistentForeground(t *testing.T) {
+	profile, dark := lipgloss.ColorProfile(), lipgloss.HasDarkBackground()
+	t.Cleanup(func() { lipgloss.SetColorProfile(profile); lipgloss.SetHasDarkBackground(dark) })
+	lipgloss.SetColorProfile(termenv.ANSI256)
+	for _, dark := range []bool{false, true} {
+		lipgloss.SetHasDarkBackground(dark)
+		for _, width := range []int{40, 120} {
+			m := reviewFixture(t, width, 24)
+			view := m.topicLegendInfo()
+			var fg, bg color.Color
+			mainR, mainG, mainB, _ := ui.TextMain.RGBA()
+			p := ansi.NewParser()
+			p.SetHandler(ansi.Handler{
+				HandleCsi: func(cmd ansi.Cmd, params ansi.Params) {
+					if int(cmd) != 'm' {
+						return
+					}
+					for i := 0; i < len(params); i++ {
+						switch params[i].Param(0) {
+						case 0:
+							fg, bg = nil, nil
+						case 30:
+							fg = ui.ColBlack
+						case 38:
+							i += ansi.ReadStyleColor(params[i:], &fg) - 1
+						case 39:
+							fg = nil
+						case 48:
+							i += ansi.ReadStyleColor(params[i:], &bg) - 1
+						case 49:
+							bg = nil
+						case 58:
+							var underlineColor color.Color
+							i += ansi.ReadStyleColor(params[i:], &underlineColor) - 1
+						}
+					}
+				},
+				Print: func(r rune) {
+					if r == ' ' || bg != nil {
+						return // The pink publish sample keeps its contrasting dark text.
+					}
+					if fg == nil {
+						t.Fatalf("legend character %q has no explicit foreground (dark=%t width=%d)", r, dark, width)
+					}
+					red, green, blue, _ := fg.RGBA()
+					if red != mainR || green != mainG || blue != mainB {
+						t.Fatalf("legend character %q does not use the shared readable foreground (dark=%t width=%d)", r, dark, width)
+					}
+				},
+			})
+			for _, b := range []byte(view) {
+				p.Advance(b)
+			}
+		}
+	}
+}
+
+func TestSubscribedTopicsAndHintKeepCyanUnderline(t *testing.T) {
+	profile, dark := lipgloss.ColorProfile(), lipgloss.HasDarkBackground()
+	t.Cleanup(func() { lipgloss.SetColorProfile(profile); lipgloss.SetHasDarkBackground(dark) })
+	for _, profile := range []termenv.Profile{termenv.ANSI256, termenv.TrueColor} {
+		lipgloss.SetColorProfile(profile)
+		for _, dark := range []bool{false, true} {
+			lipgloss.SetHasDarkBackground(dark)
+			for _, width := range []int{40, 120} {
+				m := reviewFixture(t, width, 24)
+				m.SetFocus(idTopics)
+				for _, selected := range []int{0, 2} {
+					m.topics.SetSelected(selected)
+					m.startTopicPulse(m.topics.Items[selected].Name)
+					m.handleAnimationTick()
+					box, _, _ := m.renderTopicsSection()
+					var underlineColor color.Color
+					underlined, letters := false, 0
+					cyanR, cyanG, cyanB, _ := ui.ColCyan.RGBA()
+					p := ansi.NewParser()
+					p.SetHandler(ansi.Handler{
+						HandleCsi: func(cmd ansi.Cmd, params ansi.Params) {
+							if int(cmd) != 'm' {
+								return
+							}
+							for i := 0; i < len(params); i++ {
+								switch params[i].Param(0) {
+								case 0:
+									underlined, underlineColor = false, nil
+								case 4:
+									underlined = true
+								case 24:
+									underlined = false
+								case 38, 48:
+									var ignored color.Color
+									i += ansi.ReadStyleColor(params[i:], &ignored) - 1
+								case 58:
+									i += ansi.ReadStyleColor(params[i:], &underlineColor) - 1
+								case 59:
+									underlineColor = nil
+								}
+							}
+						},
+						Print: func(r rune) {
+							if !underlined {
+								return
+							}
+							if underlineColor == nil {
+								t.Fatalf("underlined %q lost its color (profile=%v dark=%t width=%d selected=%d)", r, profile, dark, width, selected)
+							}
+							red, green, blue, _ := underlineColor.RGBA()
+							if red != cyanR || green != cyanG || blue != cyanB {
+								t.Fatalf("underlined %q is not cyan", r)
+							}
+							letters++
+						},
+					})
+					for _, b := range []byte(box) {
+						p.Advance(b)
+					}
+					if letters < len(m.topics.Items[selected].Name)+len("sub") {
+						t.Fatal("subscribed topic or legend underline is missing")
+					}
+				}
+			}
+		}
 	}
 }
 

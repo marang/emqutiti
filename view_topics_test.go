@@ -50,9 +50,8 @@ func TestPublishChipUsesPinkWithoutChangingGeometry(t *testing.T) {
 	t.Cleanup(func() { lipgloss.SetColorProfile(profile) })
 	lipgloss.SetColorProfile(termenv.ANSI256)
 	item := topics.Item{Name: "site/topic", Publish: true}
-	expected := ui.Chip.BorderForeground(ui.ColPink).BorderBackground(ui.ColPink).
-		Background(ui.ColPink).Foreground(ui.ColBlack).
-		BorderStyle(lipgloss.InnerHalfBlockBorder())
+	expected := ui.Chip.Background(ui.ColPink).Foreground(ui.ColBlack).
+		BorderStyle(lipgloss.InnerHalfBlockBorder()).BorderForeground(ui.ColPink)
 	for _, selected := range []int{-1, 0} {
 		st := expected
 		if selected == 0 {
@@ -60,7 +59,7 @@ func TestPublishChipUsesPinkWithoutChangingGeometry(t *testing.T) {
 		}
 		got := renderTopicChips([]topics.Item{item}, selected, -1, 80)[0]
 		if want := st.Render(item.Name); got != want {
-			t.Fatalf("publish chip is not completely pink: selected=%d got=%q want=%q", selected, got, want)
+			t.Fatalf("publish chip does not use continuous inner-half pink fill: selected=%d got=%q want=%q", selected, got, want)
 		}
 		base := ui.Chip.Render(item.Name)
 		if lipgloss.Width(got) != lipgloss.Width(base) || lipgloss.Height(got) != lipgloss.Height(base) {

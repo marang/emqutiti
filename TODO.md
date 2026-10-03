@@ -14,10 +14,14 @@ This file tracks planned improvements for Emqutiti.
 - [x] Mark client shortcut hints with square brackets and keep narrow layouts readable
 - [x] Explain History Shift range selection and selected/current-entry copying in context help
 - [x] Preserve chip selection across MQTT results
-- [x] Use complete pink publish fill, pink selection borders, cyan subscribe underlines and selected/marked titles
+- [x] Use interior-only pink publish fill, pink selection borders, cyan subscribe underlines and selected/marked titles
+- [x] Keep Topics legend and shortcut text at a consistent readable contrast
 - [x] Use readable medium-gray dates/input hints and high-contrast History text/help
 - [x] LAB-232: drag client panel bottom borders, shared height bounds and keyboard reset
-- [x] LAB-233: distinct Linux terminal Ctrl+Enter publish input with portable Ctrl+S fallback
+- [x] LAB-233: distinct terminal Ctrl+Enter publish input and input framing
+- [x] Publish only on modified Enter: Ctrl normally, Ctrl+Shift retained; macOS Cmd equivalents
+- [x] Update publish hints, help and terminal compatibility; remove old send bindings
+- [x] Keep publish/retained/newline shortcuts in a responsive Message footer
 - [x] Preserve additive History mouse/Space selection and marks during filter refreshes
 - [ ] Refine vertical stacking on very narrow terminals
 

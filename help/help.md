@@ -10,9 +10,8 @@
 | Alt+R | Manage traces |
 | Ctrl+B | Open broker manager |
 | Ctrl+X | Disconnect from broker after confirmation; offers immediate reconnect or opens broker manager |
-| Ctrl+S | Publish message (message editor focused) |
-| Ctrl+Enter | Publish message on supported Linux terminals (message editor focused) |
-| Ctrl+E | Publish retained message (message editor focused) |
+| Ctrl+Enter / macOS: Cmd+Enter | Publish message (client Message editor focused) |
+| Ctrl+Shift+Enter / macOS: Cmd+Shift+Enter | Publish retained message (client Message editor focused) |
 | Ctrl+L | Open log viewer |
 | Ctrl+Shift+Up / Ctrl+Shift+Down | Resize panels |
 | Ctrl+R | Reset focused client panel height |
@@ -44,8 +43,14 @@ the hovered area or keyboard focus. Hover does not change colors.
 
 ## Publishing
 
-- With the message editor focused, `Ctrl+S` publishes or `Ctrl+E` publishes
-  retained, to all marked publish targets or, if none are marked, the selected topic.
+- With the client Message editor focused, `Ctrl+Enter` publishes or
+  `Ctrl+Shift+Enter` publishes retained. On macOS, use `Cmd+Enter` and
+  `Cmd+Shift+Enter`; the Ctrl combinations also work. Publishing goes to all
+  marked targets or, if none are marked, the selected topic. Plain `Enter`
+  inserts a newline. `Ctrl+S` and `Ctrl+E` no longer publish.
+- The Message footer keeps publish, retained and newline shortcuts visible,
+  even while another area is focused. It wraps on narrow terminals without
+  reducing the configured number of editor rows.
 - Publishing is asynchronous. Pending feedback names the original targets;
   repeat sends are ignored until the current batch completes. Keep editing:
   each request uses its original payload, target, retain flag and connection,
@@ -60,23 +65,42 @@ the hovered area or keyboard focus. Hover does not change colors.
 
 ### Terminal shortcut compatibility
 
-`Ctrl+Enter` is additional non-retained publishing on Linux TTY input. The
-terminal must send `CSI 13;5u`, `CSI 13;5:1u` or `CSI 27;5;13~`. Repeats and
-release events do not send another message. Plain `Enter`, pasted text and
-unrelated keys never become publish commands. Legacy terminals that send the
-same bytes for `Enter` and `Ctrl+Enter` keep inserting a newline; use `Ctrl+S`.
-Other platforms retain their native input path and `Ctrl+S`.
+Modified Enter is the only publishing shortcut. The input adapter supports
+Linux and macOS TTY input; other input platforms currently cannot publish via
+these shortcuts. The terminal must send distinct sequences:
+
+| Shortcut | CSI-u | modifyOtherKeys |
+| --- | --- | --- |
+| Ctrl+Enter | `CSI 13;5u` | `CSI 27;5;13~` |
+| Ctrl+Shift+Enter (retained) | `CSI 13;6u` | `CSI 27;6;13~` |
+| Cmd+Enter (macOS) | `CSI 13;9u` | - |
+| Cmd+Shift+Enter (macOS, retained) | `CSI 13;10u` | - |
+
+CSI-u press events with `:1` also work; repeat (`:2`) and release (`:3`) events
+do not send another message. Plain `Enter`, pasted text and unrelated keys
+never become publish commands. If a terminal sends the same bytes for ordinary
+and modified Enter, both insert a newline until a distinct key mapping is set.
+`Ctrl+S` and `Ctrl+E` no longer publish and are not fallbacks.
 
 The app leaves keyboard protocol modes unchanged. A terminal-specific mapping
 can emit a distinct key without changing other keys. For example, Kitty:
 
 ```conf
 map ctrl+enter send_text normal,application \x1b[13;5u
+map ctrl+shift+enter send_text normal,application \x1b[13;6u
+# macOS equivalents:
+map cmd+enter send_text normal,application \x1b[13;9u
+map cmd+shift+enter send_text normal,application \x1b[13;10u
 ```
 
 The encoding follows the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/);
 mapping syntax is documented in [Kitty's send_text reference](https://sw.kovidgoyal.net/kitty/conf/#shortcut-kitty.SendText).
 This optional terminal mapping is not installed by Emqutiti.
+
+In iTerm2, profile key mappings can use **Send Hex Code** for `Cmd+Enter`
+(`0x1b 0x5b 0x31 0x33 0x3b 0x39 0x75`) and `Cmd+Shift+Enter`
+(`0x1b 0x5b 0x31 0x33 0x3b 0x31 0x30 0x75`). Replace conflicting terminal
+shortcuts if needed; see [iTerm2 key mapping documentation](https://iterm2.com/documentation-preferences-profiles-keys.html).
 
 ## Broker Manager
 
@@ -102,10 +126,12 @@ cancels; the footer stays visible. Narrow layouts stack labels and inputs.
 - Topic chips: `Enter` toggles subscription, `p` toggles the publish target,
   and `Delete` confirms removal. Left-click selects a chip; right-click confirms removal.
 - Subscribed names have a cyan underline on capable ANSI terminals;
-  completely pink-filled chips with dark
+  chips with a pink-filled interior and dark
   text are the actual publish targets, including the selected fallback when no
-  targets are marked with `p`. The selected chip has a pink outline; other
-  unfilled borders are neutral. Subscribe underlines and publish fills remain visible
+  targets are marked with `p`. Fills extend through the inner frame halves;
+  outer halves remain unfilled. The selected unfilled chip has a pink outline;
+  other unfilled borders are neutral. The legend uses consistently readable text.
+  Subscribe underlines and publish fills remain visible
   during border pulses. No-color suffixes are `[sub]`, `[pub]`, `[sub,pub]`
   and `[off]`, including the fallback's effective publish state.
 - The Message title distinguishes `publish to (selected)` from `publish to (marked)`.
@@ -161,7 +187,7 @@ Range selection is unavailable in archived history. The client context hint
 shows the selection shortcuts when History is hovered or focused.
 
 Most terminals send the same space for `Space` and `Shift+Space`; both toggle
-the current History row. Linux TTY input also accepts the distinct CSI-u
+the current History row. Linux/macOS TTY input also accepts the distinct CSI-u
 `CSI 32;2u` Shift+Space event. Editing fields keep ordinary spaces as text.
 
 Retained messages are labeled "(retained)".

@@ -2,6 +2,7 @@ package emqutiti
 
 import (
 	"reflect"
+	"runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -9,7 +10,10 @@ import (
 )
 
 // ctrlEnterMsg is distinct from KeyMsg: no legacy key or text aliases it.
-type ctrlEnterMsg struct{ press bool }
+type ctrlEnterMsg struct {
+	press    bool
+	retained bool
+}
 
 // normalizeCtrlEnterMsg runs only inside the framing reader's input filter.
 // Bubble Tea 1.3.10 has no exported extended-key event. Fail closed if its
@@ -36,6 +40,10 @@ func ctrlEnterCSIBytes(msg tea.Msg) ([]byte, bool) {
 }
 
 func decodeCtrlEnter(raw []byte) (ctrlEnterMsg, bool) {
+	return decodePublishEnter(raw, runtime.GOOS == "darwin")
+}
+
+func decodePublishEnter(raw []byte, macOS bool) (ctrlEnterMsg, bool) {
 	if len(raw) < 7 || len(raw) > 32 || raw[0] != '\x1b' || raw[1] != '[' {
 		return ctrlEnterMsg{}, false
 	}
@@ -70,11 +78,19 @@ func decodeCtrlEnter(raw []byte) (ctrlEnterMsg, bool) {
 			return i < len(params) && !params[i].HasMore() && params[i].Param(-1) == want
 		}
 		if final == '~' {
-			matched = len(params) == 3 && plain(0, 27) && plain(1, 5) && plain(2, 13)
+			if len(params) != 3 || !plain(0, 27) || params[1].HasMore() || !plain(2, 13) {
+				return
+			}
+			event.retained, matched = publishEnterModifiers(params[1].Param(-1), false)
 			event.press = matched
 			return
 		}
-		if !plain(0, 13) || len(params) < 2 || params[1].Param(-1) != 5 {
+		if !plain(0, 13) || len(params) < 2 {
+			return
+		}
+		var validModifier bool
+		event.retained, validModifier = publishEnterModifiers(params[1].Param(-1), macOS)
+		if !validModifier {
 			return
 		}
 		if len(params) == 2 && !params[1].HasMore() {
@@ -90,8 +106,21 @@ func decodeCtrlEnter(raw []byte) (ctrlEnterMsg, bool) {
 	return event, matched
 }
 
+func publishEnterModifiers(encoded int, macOS bool) (retained, valid bool) {
+	if encoded < 1 || encoded > 256 {
+		return false, false
+	}
+	// Lock states are not shortcut modifiers. Super is Command on macOS only.
+	modifiers := (encoded - 1) &^ (64 | 128)
+	base := modifiers &^ 1
+	if base != 4 && (!macOS || base != 8) {
+		return false, false
+	}
+	return modifiers&1 != 0, true
+}
+
 // handleCtrlEnterMsg consumes this event in every mode, but publishes only
-// on a press in the client message editor. It reuses the Ctrl+S command path.
+// on a press in the client message editor, preserving the MQTT request path.
 func (m *model) handleCtrlEnterMsg(msg tea.Msg) (tea.Cmd, bool) {
 	event, ok := msg.(ctrlEnterMsg)
 	if !ok {
@@ -101,5 +130,21 @@ func (m *model) handleCtrlEnterMsg(msg tea.Msg) (tea.Cmd, bool) {
 		return nil, true
 	}
 	m.clearHoverState()
+	if event.retained {
+		return m.handlePublishRetainKey(), true
+	}
 	return m.handlePublishKey(), true
+}
+
+func publishShortcutNames(goos string) (normal, retained string) {
+	modifier := "Ctrl"
+	if goos == "darwin" {
+		modifier = "Cmd"
+	}
+	return modifier + "+Enter", modifier + "+Shift+Enter"
+}
+
+func publishShortcutHint(goos string) string {
+	normal, retained := publishShortcutNames(goos)
+	return "[" + normal + "] publish  [" + retained + "] retained"
 }

@@ -35,7 +35,7 @@
 - Ask at most one clarifying question when required; otherwise proceed.
 
 ## Agent Notes
-The TUI runs fullscreen with colorful borders. Press `Ctrl+B` to open the broker manager to add, edit, or delete MQTT profiles. Passwords are stored securely using the system keyring. Publish messages with `Ctrl+S` or use `Ctrl+E` to retain them, when the message field is focused. History labels retained messages. Use the `--import`/`-i` flag to launch an interactive wizard for CSV bulk publishing and select a connection with `--profile` or `-p`. The wizard lets you rename columns when mapping them to JSON fields. Leaving a mapping blank keeps the original column name. The importer code lives in the main package and runs via these flags.
+The TUI runs fullscreen with colorful borders. Press `Ctrl+B` to open the broker manager to add, edit, or delete MQTT profiles. Passwords are stored securely using the system keyring. With the client Message editor focused, publish only with `Ctrl+Enter` or `Ctrl+Shift+Enter` for retained messages; macOS equivalents are `Cmd+Enter` and `Cmd+Shift+Enter`. Distinct terminal sequences are required on Linux/macOS TTY input. Plain Enter inserts a newline. History labels retained messages. Use the `--import`/`-i` flag to launch an interactive wizard for CSV bulk publishing and select a connection with `--profile` or `-p`. The wizard lets you rename columns when mapping them to JSON fields. Leaving a mapping blank keeps the original column name. The importer code lives in the main package and runs via these flags.
 Press `Ctrl+D` from any screen to exit the program.
 Press `Ctrl+L` from any screen to open the log viewer; press `Esc` to return.
 Scroll with `Ctrl+Up`/`Ctrl+Down` or `Ctrl+K`/`Ctrl+J`. In history,
@@ -78,20 +78,30 @@ Scroll with `Ctrl+Up`/`Ctrl+Down` or `Ctrl+K`/`Ctrl+J`. In history,
   two rows above the scrollable body; wrap and scroll long dialog/detail content
   while keeping decisions reachable.
 - Preserve chip border geometry and spacing, with no reserved animation column
-  or `r`/`rw` prefixes. Cyan-underline subscribed names independently of complete
-  pink publish fill and pink selection borders. Fill effective publish targets,
+  or `r`/`rw` prefixes. Cyan-underline subscribed names independently of pink
+  interior publish fill and pink selection borders. Use inner-half block borders
+  for seamless publish fill; leave border backgrounds unset to keep outer halves
+  unfilled.
+  Fill effective publish targets,
   including the selected fallback; distinguish selected/marked mode in the
   Message title. Use `[sub]`, `[pub]`, `[sub,pub]`, `[off]` for those effective
   states in no-color mode. List rebuilds preserve client selection by identity
   while managers keep their own pane selection.
-  Match the Topics legend to those cues; include wrapped rows in its height
-  budget. Other section boxes retain the existing pink keyboard-focus style.
+  Match the Topics legend to those cues with consistent readable text; include
+  wrapped rows in its height budget. Other section boxes retain the existing
+  pink keyboard-focus style.
   History dates and input hints use adaptive medium gray; log text and help
   keys/descriptions stay higher contrast on light and dark backgrounds.
   Use the shared panel resize controller for bottom-border dragging and keyboard
   resizing/reset; preserve drafts/focus and suspend editing/publishing during drags.
-  Modified-key adapters accept only distinct Linux TTY encodings; keep legacy
-  Enter/paste unchanged and Ctrl+S portable. History Shift-click adds ranges;
+  Modified-key adapters accept distinct Linux/macOS TTY encodings; keep ordinary
+  Enter/paste unchanged. Ctrl+Enter publishes; Ctrl+Shift+Enter sets retained.
+  Command equivalents are macOS-only. Ctrl+S/Ctrl+E never publish. Leave keyboard
+  protocol modes unchanged; document optional terminal key mappings in help.
+  Keep publish/retained/newline shortcuts in the Message footer, sharing key
+  labels with context help. Reserve wrapped footer rows in panel height bounds
+  without reducing configured editor rows.
+  History Shift-click adds ranges;
   Space/Shift+Space toggles one row without clearing other marks.
   See `.plan/lab-226-implementation.md` for the comparison and validation evidence.
 

@@ -33,6 +33,7 @@ func (m *model) panelResizeSpec(id string) (panelResizeSpec, bool) {
 		spec.max = max(1, (available-2-lipgloss.Height(m.topicLegendInfo()))/spec.linesPerUnit)
 	case idMessage:
 		spec.config, spec.name = &m.layout.message, "Message"
+		spec.max = max(1, spec.max-m.message.FooterHeight())
 		if limit := m.message.Input().MaxHeight; limit > 0 {
 			spec.max = min(spec.max, limit)
 		}

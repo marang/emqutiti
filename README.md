@@ -48,9 +48,16 @@ If a profile is marked as default, the app connects to it automatically on start
   topic chip, `Enter` toggles subscription, `p` toggles the publish target,
   and `Delete` opens a removal confirmation. Typing in inputs or list
   filters does not run chip commands.
-- With the message editor focused, `Ctrl+S` publishes and `Ctrl+E` publishes
-  retained. Explicit publish targets take priority; otherwise the selected
+- With the message editor focused, `Ctrl+Enter` publishes and
+  `Ctrl+Shift+Enter` publishes retained. On macOS, use `Cmd+Enter` and
+  `Cmd+Shift+Enter`; the Ctrl combinations also work. Plain `Enter` inserts a
+  newline. The terminal must send distinct modified-key sequences; see
+  [terminal shortcut compatibility](help/help.md#terminal-shortcut-compatibility).
+  Explicit publish targets take priority; otherwise the selected
   topic is used. MQTT work runs asynchronously, keeping the UI responsive.
+- The Message footer keeps publish, retained and newline shortcuts visible
+  regardless of focus. It wraps on narrow terminals without reducing the
+  configured editor rows.
 - Pending publishes show their original targets and suppress repeat sends
   until the current batch finishes. Each request keeps its payload, target,
   retain flag and broker/client snapshot; the draft remains editable and is
@@ -66,16 +73,18 @@ If a profile is marked as default, the app connects to it automatically on start
   content scroll within the terminal. The global shortcut header stays one
   row at every width; client context help stays two rows above the content.
   Compact hints mark keyboard shortcuts with square brackets, for example
-  `[Enter]`, `[p]` and `[Ctrl+S]`.
+  `[Enter]`, `[p]` and `[Ctrl+Enter]`.
 
 Subscribed chip names have a cyan underline on capable ANSI terminals.
-Completely pink-filled chips with
-dark text are the actual publish targets, including the selected topic when no
-targets are marked with `p`. A pink outline indicates the selected chip;
+Chips with a pink-filled interior and dark text are the actual publish targets,
+including the selected topic when no targets are marked with `p`. A pink outline
+indicates the selected unfilled chip;
 neutral borders carry no subscription state. The Message title distinguishes
 `publish to (selected)` from `publish to (marked)`. The Topics legend uses the
-same subscription/publish cues, which remain visible during border
-pulses. Subscription results and list refreshes preserve the selected chip
+same subscription/publish cues with consistently readable text. Publish fills
+extend to the inner half of the frame, leaving its outer half unfilled.
+Those cues remain visible during border pulses. Subscription
+results and list refreshes preserve the selected chip
 and its publish fallback. History dates and input hints use adaptive medium gray;
 log text and shortcut hints retain higher contrast on light and dark backgrounds.
 The heading `Topics: N | subscribed: S` shows the total topic count and the
@@ -174,8 +183,8 @@ Tips:
 | Manage traces | `Alt+R` |
 | Open broker manager | `Ctrl+B` |
 | Disconnect from broker after confirmation and offer to reconnect immediately or return to the broker manager | `Ctrl+X` |
-| Publish message (message editor focused) | `Ctrl+S`; `Ctrl+Enter` on supported Linux terminals |
-| Publish retained message (message editor focused) | `Ctrl+E` |
+| Publish message (message editor focused) | `Ctrl+Enter`; macOS: `Cmd+Enter` |
+| Publish retained message (message editor focused) | `Ctrl+Shift+Enter`; macOS: `Cmd+Shift+Enter` |
 | Open log viewer | `Ctrl+L` |
 | Resize panels | `Ctrl+Shift+Up` / `Ctrl+Shift+Down` |
 | Reset focused client panel height | `Ctrl+R` |
@@ -219,12 +228,14 @@ entries, or the current entry when nothing is selected. MQTT entries include
 the topic and full payload; multiple entries are separated by newlines.
 Range selection is unavailable in archived history.
 
-`Ctrl+Enter` publishes without retaining, only in the focused Message editor.
-It currently requires Linux TTY input and a terminal that sends a distinct
-modified-key sequence (`CSI 13;5u` or `CSI 27;5;13~`). Ordinary `Enter` remains
-a newline, including on terminals that cannot distinguish `Ctrl+Enter`.
-`Ctrl+S` remains the portable publish shortcut. Emqutiti does not enable a new
-keyboard protocol or change your terminal configuration. See
+Publishing uses only modified Enter in the focused Message editor:
+`Ctrl+Enter` sends normally, `Ctrl+Shift+Enter` sets MQTT's retained flag.
+On macOS, `Cmd+Enter` and `Cmd+Shift+Enter` are the equivalents.
+`Ctrl+S` and `Ctrl+E` no longer publish. The input adapter supports Linux and
+macOS TTY input with distinct terminal sequences; plain `Enter` stays a newline.
+If a terminal sends Enter for both shortcuts, configure a distinct key mapping.
+Other input platforms currently cannot publish via these shortcuts.
+Emqutiti does not enable a new keyboard protocol or change terminal settings. See
 [terminal shortcut compatibility](help/help.md#terminal-shortcut-compatibility).
 
 Retained messages are labeled "(retained)".
@@ -302,14 +313,17 @@ Run `make tape` to execute `docs/scripts/record_tapes.sh` locally. The script
 uses a helper container to render GIFs from the `.tape` files, so you don't
 need `vhs` installed on your machine. `make tape` builds `docs/scripts/
 Dockerfile.vhs`, which bundles `vhs`, `ffmpeg`, `ttyd`, and `chromium`, then
-runs `docs/scripts/record_tapes.sh`. Tape and GIF files are written to
-`docs/`. If `vhs` is already on your `PATH`, you can regenerate an individual
+runs `docs/scripts/record_tapes.sh`. GIF files are written to `docs/assets/`;
+the source tapes live under `docs/`. The client tape demonstrates composing a
+draft: VHS's xterm.js backend does not emit distinct modified-Enter sequences,
+so it cannot demonstrate the new publish shortcuts without a custom mapping.
+If `vhs` is already on your `PATH`, you can regenerate an individual
 GIF with:
 
 ```bash
 vhs -o docs/assets/create_connection.gif docs/create_connection.tape
 ```
-You'll interact with the TUI directly on your machine.
+VHS replays the tape automatically in its recorder terminal.
 
 ### Releasing
 

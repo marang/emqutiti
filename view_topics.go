@@ -144,12 +144,13 @@ func topicChipLegend() string {
 	if lipgloss.ColorProfile() == termenv.Ascii {
 		return "[sub]=read  [pub]=write  [off]=inactive"
 	}
-	sub := topicSubscriptionLabel("sub", true)
+	text := lipgloss.NewStyle().Foreground(ui.TextMain)
+	sub := text.Render(topicSubscriptionLabel("sub", true))
 	pub := lipgloss.NewStyle().
 		Foreground(ui.ChipPublish.GetForeground()).
 		Background(ui.ChipPublish.GetBackground()).Render("pub")
-	off := lipgloss.NewStyle().Foreground(ui.ChipInactive.GetForeground()).Render("off")
-	return sub + "=read  " + pub + "=write  " + off + "=inactive"
+	off := text.Render("off")
+	return sub + text.Render("=read  ") + pub + text.Render("=write  ") + off + text.Render("=inactive")
 }
 
 // layoutTopicViewport sets up the topic viewport and returns visible chip bounds.
@@ -210,11 +211,12 @@ func (m *model) topicLegendInfo() string {
 	legend := topicChipLegend()
 	width := max(1, m.ui.width-6)
 	actions := topicShortcutHint(width)
-	info := legend + " | " + actions
+	text := lipgloss.NewStyle().Foreground(ui.TextMain)
+	info := legend + text.Render(" | "+actions)
 	if lipgloss.Width(info) > width {
-		info = legend + "\n" + actions
+		info = legend + "\n" + text.Render(actions)
 	}
-	return ui.InfoSubtleStyle.Render(ansi.Wrap(info, width, ""))
+	return ui.InfoSubtleStyle.UnsetForeground().Render(ansi.Wrap(info, width, ""))
 }
 
 // buildTopicBoxes assembles the legend boxes for topics and the input field.

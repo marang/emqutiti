@@ -57,3 +57,21 @@ func TestRenderHelpGroupsSections(t *testing.T) {
 		}
 	}
 }
+
+func TestEmbeddedHelpUsesCurrentPublishShortcuts(t *testing.T) {
+	for _, shortcut := range []string{"Ctrl+Enter", "Ctrl+Shift+Enter", "Cmd+Enter", "Cmd+Shift+Enter"} {
+		if !strings.Contains(helpMarkdown, "| "+shortcut) && !strings.Contains(helpMarkdown, "macOS: "+shortcut) {
+			t.Fatalf("help shortcut table is missing %q", shortcut)
+		}
+	}
+	for _, old := range []string{"| Ctrl+S |", "| Ctrl+E |", "Ctrl+Enter*"} {
+		if strings.Contains(helpMarkdown, old) {
+			t.Fatalf("help still advertises obsolete binding %q", old)
+		}
+	}
+	for _, required := range []string{"Message footer", "Plain `Enter`", "Linux and macOS TTY", "terminal must send distinct"} {
+		if !strings.Contains(helpMarkdown, required) {
+			t.Fatalf("help is missing publish guidance %q", required)
+		}
+	}
+}

@@ -61,13 +61,6 @@ func (m *model) HandleClientKey(msg tea.KeyMsg) tea.Cmd {
 		return m.handleSelectAllKey()
 	case constants.KeyUp, constants.KeyDown, constants.KeyK, constants.KeyJ:
 		return m.handleScrollKeys(msg.String())
-	case constants.KeyCtrlE:
-		return m.handlePublishRetainKey()
-	case constants.KeyCtrlS:
-		if m.ui.focusOrder[m.ui.focusIndex] == idMessage {
-			return m.handlePublishKey()
-		}
-		return nil
 	case constants.KeyEnter:
 		return m.handleEnterKey()
 	case constants.KeyP:
