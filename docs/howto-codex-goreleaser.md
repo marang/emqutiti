@@ -35,6 +35,8 @@ builds:
   - id: emqutiti
     main: ./cmd/emqutiti
     binary: emqutiti
+    ldflags:
+      - -s -w -X github.com/marang/emqutiti/cmd.version={{.Version}}
     env:
       - CGO_ENABLED=0
     goos: [linux, darwin, windows]
