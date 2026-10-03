@@ -17,8 +17,8 @@ var (
 	ChipInactive        = Chip
 	ChipInactiveFocused = ChipFocused
 	ChipInactiveHovered = ChipInactive
-	ChipPublish         = Chip.Background(ColPink).Foreground(ColBlack).BorderStyle(lipgloss.InnerHalfBlockBorder()).BorderForeground(ColPink).BorderBackground(ColPink)
-	ChipPublishFocused  = ChipPublish
+	ChipPublish         = Chip.Background(ColPink).Foreground(ColBlack).BorderStyle(lipgloss.InnerHalfBlockBorder()).BorderForeground(ColPink)
+	ChipPublishFocused  = ChipPublish.BorderForeground(ColPink)
 	ChipPublishHovered  = ChipPublish
 
 	InfoStyle       = lipgloss.NewStyle().Foreground(ColBlue).PaddingLeft(1)
