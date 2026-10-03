@@ -96,8 +96,11 @@ Scroll with `Ctrl+Up`/`Ctrl+Down` or `Ctrl+K`/`Ctrl+J`. In history,
   resizing/reset; preserve drafts/focus and suspend editing/publishing during drags.
   Modified-key adapters accept distinct Linux/macOS TTY encodings; keep ordinary
   Enter/paste unchanged. Ctrl+Enter publishes; Ctrl+Shift+Enter sets retained.
-  Command equivalents are macOS-only. Ctrl+S/Ctrl+E never publish. Leave keyboard
-  protocol modes unchanged; document optional terminal key mappings in help.
+  Command equivalents are macOS-only. Ctrl+S/Ctrl+E never publish. Request keyboard
+  disambiguation and alternate shifted keys only within the TUI's alternate
+  screen, with a matching pop before exiting/releasing it and an idempotent
+  startup-failure cleanup. Preserve ordinary Ctrl/Alt keys, Alt+Shift text,
+  Escape and Shift+Tab in the input adapter; document unsupported-terminal mappings in help.
   Keep publish/retained/newline shortcuts in the Message footer, sharing key
   labels with context help. Reserve wrapped footer rows in panel height bounds
   without reducing configured editor rows.

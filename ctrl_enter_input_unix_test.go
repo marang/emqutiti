@@ -3,11 +3,198 @@
 package emqutiti
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 )
+
+func TestModifiedKeyboardOutputRestoresEachAlternateScreen(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "terminal-output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	output := &ctrlEnterTerminalOutput{File: file}
+	if output.Fd() != file.Fd() || output.Name() != file.Name() {
+		t.Fatal("output lost terminal file methods")
+	}
+	for range 2 {
+		for _, seq := range []string{ansi.SetAltScreenSaveCursorMode, "view", ansi.ResetAltScreenSaveCursorMode} {
+			if n, err := io.WriteString(output, seq); n != len(seq) || err != nil {
+				t.Fatalf("WriteString(%q)=%d, %v", seq, n, err)
+			}
+		}
+	}
+	for range 2 {
+		if err := output.cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cycle := ansi.SetAltScreenSaveCursorMode + modifiedKeysPush + "view" + modifiedKeysPop + ansi.ResetAltScreenSaveCursorMode
+	if string(data) != cycle+cycle {
+		t.Fatalf("protocol push/pop escaped its alternate-screen stack: %q", data)
+	}
+}
+
+func TestModifiedKeyboardOutputCleanup(t *testing.T) {
+	enter, exit := ansi.SetAltScreenSaveCursorMode, ansi.ResetAltScreenSaveCursorMode
+	for _, test := range []struct {
+		name  string
+		input []string
+		want  string
+	}{
+		{name: "no push"},
+		{name: "exit without push", input: []string{exit}, want: exit},
+		{name: "startup failure", input: []string{enter, "view"}, want: enter + modifiedKeysPush + "view" + modifiedKeysPop + exit},
+		{name: "multiple outstanding pushes", input: []string{enter, enter}, want: enter + modifiedKeysPush + enter + modifiedKeysPush + modifiedKeysPop + modifiedKeysPop + exit},
+		{name: "normal shutdown", input: []string{enter, exit}, want: enter + modifiedKeysPush + modifiedKeysPop + exit},
+		{name: "released then restored", input: []string{enter, exit, enter}, want: enter + modifiedKeysPush + modifiedKeysPop + exit + enter + modifiedKeysPush + modifiedKeysPop + exit},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			file, err := os.CreateTemp(t.TempDir(), "terminal-output")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer file.Close()
+			output := &ctrlEnterTerminalOutput{File: file}
+			for _, seq := range test.input {
+				if n, err := io.WriteString(output, seq); n != len(seq) || err != nil {
+					t.Fatalf("WriteString(%q)=%d, %v", seq, n, err)
+				}
+			}
+			for range 2 {
+				if err := output.cleanup(); err != nil {
+					t.Fatal(err)
+				}
+			}
+			// An abandoned renderer must not re-enter or repaint the terminal.
+			for _, seq := range []string{enter, "late frame", exit} {
+				if n, err := io.WriteString(output, seq); n != len(seq) || err != nil {
+					t.Fatalf("late WriteString(%q)=%d, %v", seq, n, err)
+				}
+			}
+			data, err := os.ReadFile(file.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != test.want {
+				t.Fatalf("cleanup output=%q, want %q", data, test.want)
+			}
+		})
+	}
+}
+
+func TestModifiedKeyboardOutputConcurrentCleanup(t *testing.T) {
+	file, err := os.CreateTemp(t.TempDir(), "terminal-output")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	output := &ctrlEnterTerminalOutput{File: file}
+	var workers sync.WaitGroup
+	for range 4 {
+		workers.Go(func() {
+			for range 20 {
+				for _, seq := range []string{
+					ansi.SetAltScreenSaveCursorMode, ansi.HideCursor,
+					ansi.SetBracketedPasteMode, ansi.SetAnyEventMouseMode,
+					ansi.SetSgrExtMouseMode, ansi.SetFocusEventMode, "view",
+					ansi.ResetBracketedPasteMode, ansi.ShowCursor,
+					ansi.ResetAnyEventMouseMode, ansi.ResetSgrExtMouseMode,
+					ansi.ResetFocusEventMode, ansi.ResetAltScreenSaveCursorMode,
+				} {
+					if _, err := io.WriteString(output, seq); err != nil {
+						t.Error(err)
+					}
+				}
+			}
+		})
+	}
+	for range 2 {
+		workers.Go(func() {
+			if err := output.cleanup(); err != nil {
+				t.Error(err)
+			}
+		})
+	}
+	workers.Wait()
+	data, err := os.ReadFile(file.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pushes, pops := bytes.Count(data, []byte(modifiedKeysPush)), bytes.Count(data, []byte(modifiedKeysPop))
+	if pushes != pops {
+		t.Fatalf("concurrent cleanup left pushes=%d pops=%d: %q", pushes, pops, data)
+	}
+}
+
+func TestModifiedKeyboardOutputCleanupRendererModes(t *testing.T) {
+	for _, mode := range []struct {
+		name, enable, reset string
+	}{
+		{"cursor", ansi.HideCursor, ansi.ShowCursor},
+		{"paste", ansi.SetBracketedPasteMode, ansi.ResetBracketedPasteMode},
+		{"mouse cell", ansi.SetButtonEventMouseMode, ansi.ResetButtonEventMouseMode},
+		{"mouse all", ansi.SetAnyEventMouseMode, ansi.ResetAnyEventMouseMode},
+		{"mouse sgr", ansi.SetSgrExtMouseMode, ansi.ResetSgrExtMouseMode},
+		{"focus", ansi.SetFocusEventMode, ansi.ResetFocusEventMode},
+	} {
+		for _, normalReset := range []bool{false, true} {
+			name := mode.name + "/fallback"
+			if normalReset {
+				name = mode.name + "/normal reset"
+			}
+			t.Run(name, func(t *testing.T) {
+				file, err := os.CreateTemp(t.TempDir(), "terminal-output")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer file.Close()
+				output := &ctrlEnterTerminalOutput{File: file}
+				// Repeated enables (Tea hides the cursor twice on startup) need
+				// only one reset, even when no alternate screen was entered.
+				for range 2 {
+					if _, err := io.WriteString(output, mode.enable); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if normalReset {
+					if _, err := io.WriteString(output, mode.reset); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for range 2 {
+					if err := output.cleanup(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if _, err := io.WriteString(output, mode.enable); err != nil {
+					t.Fatal(err)
+				}
+				data, err := os.ReadFile(file.Name())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if want := mode.enable + mode.enable + mode.reset; string(data) != want {
+					t.Fatalf("mode cleanup output=%q, want %q", data, want)
+				}
+			})
+		}
+	}
+}
 
 func ctrlEnterPipeInput(t *testing.T) (*ctrlEnterTerminalInput, *os.File) {
 	t.Helper()
