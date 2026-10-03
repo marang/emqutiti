@@ -1,6 +1,7 @@
 package emqutiti
 
 import (
+	"runtime"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,6 +20,14 @@ func (m *model) HoveredID() string { return m.ui.hoveredID }
 
 // MessageTargetPreview returns a compact label for the message publish target.
 func (m *model) MessageTargetPreview() string { return m.messageTargetPreview() }
+
+// MessageShortcutHint returns the message editor's persistent action hints.
+func (m *model) MessageShortcutHint() string {
+	if !m.ui.modifiedKeyInput {
+		return "Publish keys need terminal support | [Enter] newline"
+	}
+	return publishShortcutHint(runtime.GOOS) + "  [Enter] newline"
+}
 
 func (m *model) topicIndexByName(name string) int {
 	for i, t := range m.topics.Items {

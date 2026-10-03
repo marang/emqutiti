@@ -61,7 +61,7 @@ func TestCtrlEnterLinuxTTYActualTeaInput(t *testing.T) {
 			writerDone <- ctx.Err()
 			return
 		}
-		input := "\x1b[13;5u\r\x1b[200~paste\x1b[13;5u\x1b[201~\x1b[27;5;13~\x04"
+		input := "\x1b[13;5u\r\x1b[200~paste\x1b[13;5u\x1b[13;6u\x1b[201~\x1b[27;5;13~\x1b[13;6u\x1b[27;6;13~\x04"
 		for _, b := range []byte(input) {
 			if _, err := master.Write([]byte{b}); err != nil {
 				writerDone <- err
@@ -77,7 +77,7 @@ func TestCtrlEnterLinuxTTYActualTeaInput(t *testing.T) {
 	if err := <-writerDone; err != nil {
 		t.Error(err)
 	}
-	if got := ctrlEnterEvents(m.messages); !reflect.DeepEqual(got, []ctrlEnterMsg{{true}, {true}}) {
+	if got := ctrlEnterEvents(m.messages); !reflect.DeepEqual(got, []ctrlEnterMsg{{press: true}, {press: true}, {press: true, retained: true}, {press: true, retained: true}}) {
 		t.Fatalf("TTY events = %#v", got)
 	}
 	after, err := term.GetState(slave.Fd())

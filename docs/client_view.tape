@@ -20,6 +20,6 @@ Tab
 Sleep 1000ms
 Type Aloha
 Sleep 1000ms
-Ctrl+S
+# Compose a draft. VHS/xterm.js cannot emit a distinct Ctrl+Enter sequence.
 Sleep 4000ms
 Ctrl+D

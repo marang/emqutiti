@@ -10,5 +10,6 @@ type Model interface {
 	FocusedID() string
 	HoveredID() string
 	MessageTargetPreview() string
+	MessageShortcutHint() string
 	OverlayHelp(view string) string
 }

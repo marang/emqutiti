@@ -2,6 +2,7 @@ package emqutiti
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -71,16 +72,20 @@ func TestPublishHintOnlyOffersExtendedKeysWithAdapter(t *testing.T) {
 	m := reviewFixture(t, 80, 24)
 	m.mqttClient = &MQTTClient{Client: &fakeClient{}}
 	m.SetFocus(idMessage)
-	if strings.Contains(m.contextHelpDetailText(), "Ctrl+Enter") {
+	normal, retained := publishShortcutNames(runtime.GOOS)
+	if strings.Contains(m.contextHelpDetailText(), normal) || !strings.Contains(m.contextHelpDetailText(), "terminal support") {
 		t.Fatal("extended shortcut offered without its input adapter")
 	}
 	m.ui.modifiedKeyInput = true
-	if !strings.Contains(m.contextHelpDetailText(), "[Ctrl+Enter*]") {
+	if !strings.Contains(m.contextHelpDetailText(), "["+normal+"]") || !strings.Contains(m.contextHelpDetailText(), "["+retained+"]") {
 		t.Fatal("extended shortcut missing on supported input")
 	}
 	m.ui.width = 40
-	if strings.Contains(m.contextHelpDetailText(), "Ctrl+Enter") || !strings.Contains(m.contextHelpDetailText(), "[Ctrl+E]") {
-		t.Fatal("narrow extended-key hint hid the portable commands")
+	if !strings.Contains(m.contextHelpDetailText(), "["+normal+"]") || !strings.Contains(m.contextHelpDetailText(), "["+retained+"]") {
+		t.Fatal("narrow hint hid the new publish commands")
+	}
+	if strings.Contains(m.contextHelpDetailText(), "[Ctrl+S]") || strings.Contains(m.contextHelpDetailText(), "[Ctrl+E]") {
+		t.Fatal("hint still advertises removed publish commands")
 	}
 }
 
@@ -212,6 +217,8 @@ func TestContextHelpRendersTwoLines(t *testing.T) {
 
 func TestContextShortcutKeysUseBrackets(t *testing.T) {
 	m := reviewFixture(t, 80, 24)
+	m.ui.modifiedKeyInput = true
+	normal, retained := publishShortcutNames(runtime.GOOS)
 	for _, tc := range []struct {
 		name, focus, input string
 		connected          bool
@@ -221,8 +228,8 @@ func TestContextShortcutKeysUseBrackets(t *testing.T) {
 		{"new topic input", idTopic, "new/topic", false, []string{"[Enter]", "[Tab]"}},
 		{"existing topic input", idTopic, "site/status", false, []string{"[Tab]"}},
 		{"topic chips", idTopics, "", false, []string{"[Enter]", "[p]", "[Del]"}},
-		{"disconnected editor", idMessage, "", false, []string{"[Ctrl+B]", "[Ctrl+S]"}},
-		{"connected editor", idMessage, "", true, []string{"[Ctrl+S]", "[Ctrl+E]"}},
+		{"disconnected editor", idMessage, "", false, []string{"[Ctrl+B]", "[" + normal + "]"}},
+		{"connected editor", idMessage, "", true, []string{"[" + normal + "]", "[" + retained + "]"}},
 		{"history", idHistory, "", false, []string{"[Enter]", "[/]", "[Ctrl+C]"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -244,6 +251,8 @@ func TestContextShortcutKeysUseBrackets(t *testing.T) {
 
 func TestContextShortcutsRemainVisibleOnNarrowTerminal(t *testing.T) {
 	m := reviewFixture(t, 40, 16)
+	m.ui.modifiedKeyInput = true
+	normal, retained := publishShortcutNames(runtime.GOOS)
 	for _, tc := range []struct {
 		focus, input string
 		connected    bool
@@ -251,8 +260,8 @@ func TestContextShortcutsRemainVisibleOnNarrowTerminal(t *testing.T) {
 	}{
 		{idTopic, "new/topic", false, []string{"[Enter]", "[Tab]"}},
 		{idTopics, "", false, []string{"[Enter]", "[p]", "[Del]"}},
-		{idMessage, "", false, []string{"[Ctrl+B]", "[Ctrl+S]"}},
-		{idMessage, "", true, []string{"[Ctrl+S]", "[Ctrl+E]"}},
+		{idMessage, "", false, []string{"[Ctrl+B]", "[" + normal + "]"}},
+		{idMessage, "", true, []string{"[" + normal + "]", "[" + retained + "]"}},
 		{idHistory, "", false, []string{"[Enter]", "[/]", "[Ctrl+C]"}},
 	} {
 		m.mqttClient = nil

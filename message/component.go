@@ -3,6 +3,7 @@ package message
 import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/marang/emqutiti/focus"
@@ -59,8 +60,18 @@ func (c *Component) View() string {
 	if maxLabel := c.m.Width() - 6; maxLabel > 0 {
 		label = ansi.Truncate(label, maxLabel, "…")
 	}
-	return ui.LegendBoxWithState(msgContent, label, c.m.Width()-2, msgHeight, ui.ColBlue, ui.BoxState{Focused: focused, Hovered: hovered}, msgSP)
+	info := c.shortcutInfo()
+	content := lipgloss.JoinVertical(lipgloss.Left, msgContent, info)
+	return ui.LegendBoxWithState(content, label, c.m.Width()-2, msgHeight+lipgloss.Height(info), ui.ColBlue, ui.BoxState{Focused: focused, Hovered: hovered}, msgSP)
 }
+
+func (c *Component) shortcutInfo() string {
+	width := max(1, c.m.Width()-5)
+	return ui.InfoSubtleStyle.Foreground(ui.TextMain).Render(ansi.Wrap(c.m.MessageShortcutHint(), width, ""))
+}
+
+// FooterHeight returns the rows reserved for the message editor's action hints.
+func (c *Component) FooterHeight() int { return lipgloss.Height(c.shortcutInfo()) }
 
 func (c *Component) Focus() tea.Cmd { return c.TA.Focus() }
 

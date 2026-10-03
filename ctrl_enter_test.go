@@ -73,6 +73,123 @@ func TestCtrlEnterActualTeaParser(t *testing.T) {
 	}
 }
 
+func TestPublishOnlyOnModifiedEnter(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw         string
+		publish, retained bool
+	}{
+		{"ctrl enter", "\x1b[13;5u", true, false},
+		{"retained CSI-u", "\x1b[13;6u", true, true},
+		{"retained modifyOtherKeys", "\x1b[27;6;13~", true, true},
+		{"old ctrl s", "\x13", false, false},
+		{"old ctrl e", "\x05", false, false},
+		{"plain enter", "\r", false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := reviewFixture(t, 80, 24)
+			m.SetMode(constants.ModeClient)
+			m.SetFocus(idMessage)
+			m.topics.Items = []topics.Item{{Name: "output", Publish: true}}
+			m.message.SetPayload("draft")
+			m.history.SetItems(nil)
+			client := &publishTestClient{}
+			m.mqttClient = &MQTTClient{Client: client}
+			captureCtrlEnterInputWithUpdate(t, strings.NewReader(tc.raw+"\x04"), func(msg tea.Msg) tea.Cmd {
+				_, cmd := m.Update(msg)
+				if _, ok := msg.(ctrlEnterMsg); ok {
+					applyMQTTCommand(m, cmd)
+				}
+				return nil
+			})
+			if got := len(client.seen) > 0 || m.pendingPublishes() > 0; got != tc.publish {
+				t.Fatalf("published = %t, want %t", got, tc.publish)
+			}
+			if tc.publish {
+				if client.retained != tc.retained || client.seen["output"] != "draft" {
+					t.Fatalf("retain = %t, payload = %q", client.retained, client.seen["output"])
+				}
+				items := m.history.Items()
+				if len(items) != 1 || items[0].Kind != "pub" || items[0].Retained != tc.retained {
+					t.Fatal("publish history does not match retained mode")
+				}
+			}
+		})
+	}
+}
+
+func TestPublishEnterPlatformModifiers(t *testing.T) {
+	for _, tc := range []struct {
+		raw                              string
+		macOS, accepted, press, retained bool
+	}{
+		{"\x1b[13;5u", false, true, true, false},
+		{"\x1b[13;6u", false, true, true, true},
+		{"\x1b[13;6:1u", false, true, true, true},
+		{"\x1b[13;6:2u", false, true, false, true},
+		{"\x1b[13;6:3u", false, true, false, true},
+		{"\x1b[27;6;13~", false, true, true, true},
+		{"\x1b[13;69u", false, true, true, false},
+		{"\x1b[13;198u", false, true, true, true},
+		{"\x1b[13;9u", false, false, false, false},
+		{"\x1b[13;10u", false, false, false, false},
+		{"\x1b[13;5u", true, true, true, false},
+		{"\x1b[13;6u", true, true, true, true},
+		{"\x1b[13;9u", true, true, true, false},
+		{"\x1b[13;10u", true, true, true, true},
+		{"\x1b[13;10:1u", true, true, true, true},
+		{"\x1b[13;10:2u", true, true, false, true},
+		{"\x1b[13;10:3u", true, true, false, true},
+		{"\x1b[13;202u", true, true, true, true},
+		{"\x1b[27;9;13~", true, false, false, false},
+		{"\x1b[13;7u", true, false, false, false},
+		{"\x1b[13;13u", true, false, false, false},
+		{"\x1b[13;17u", true, false, false, false},
+		{"\x1b[13;258u", true, false, false, false},
+		{"\x1b[13;6:4u", true, false, false, false},
+	} {
+		event, ok := decodePublishEnter([]byte(tc.raw), tc.macOS)
+		if ok != tc.accepted || ok && (event.press != tc.press || event.retained != tc.retained) {
+			t.Errorf("%q macOS=%t: event=%+v accepted=%t", tc.raw, tc.macOS, event, ok)
+		}
+	}
+}
+
+func TestRetainedEnterRepeatReleaseAndPasteDoNotRepublish(t *testing.T) {
+	m := reviewFixture(t, 80, 24)
+	m.SetMode(constants.ModeClient)
+	m.SetFocus(idMessage)
+	m.topics.Items = []topics.Item{{Name: "output", Publish: true}}
+	m.message.SetPayload("draft")
+	m.history.SetItems(nil)
+	client := &publishTestClient{}
+	m.mqttClient = &MQTTClient{Client: client}
+	raw := "\x1b[13;6:1u\x1b[13;6:2u\x1b[13;6:3u\x1b[200~\x1b[13;6u\x1b[27;6;13~\x1b[13;10u\x1b[201~\x04"
+	messages := captureCtrlEnterInputWithUpdate(t, strings.NewReader(raw), func(msg tea.Msg) tea.Cmd {
+		_, cmd := m.Update(msg)
+		if _, ok := msg.(ctrlEnterMsg); ok {
+			applyMQTTCommand(m, cmd)
+		}
+		return nil
+	})
+	if events := ctrlEnterEvents(messages); !reflect.DeepEqual(events, []ctrlEnterMsg{{press: true, retained: true}, {retained: true}, {retained: true}}) {
+		t.Fatalf("events = %+v", events)
+	}
+	if len(m.history.Items()) != 1 || !m.history.Items()[0].Retained || client.seen["output"] != "draft" {
+		t.Fatal("retained input repeated publishing or lost its snapshot")
+	}
+}
+
+func TestRetainedEnterFramingAtEverySplit(t *testing.T) {
+	for _, raw := range []string{"\x1b[13;6u", "\x1b[13;6:1u", "\x1b[27;6;13~"} {
+		for split := 1; split < len(raw); split++ {
+			r := &ctrlEnterChunkReader{chunks: [][]byte{[]byte(raw[:split]), []byte(raw[split:] + "\x04")}}
+			if events := ctrlEnterEvents(captureCtrlEnterInput(t, r)); !reflect.DeepEqual(events, []ctrlEnterMsg{{press: true, retained: true}}) {
+				t.Fatalf("%q split=%d: events=%+v", raw, split, events)
+			}
+		}
+	}
+}
+
 func TestCtrlEnterTeaParserPreservesEditorNewlineAndPaste(t *testing.T) {
 	m := reviewFixture(t, 80, 24)
 	m.ui.modeStack = []constants.AppMode{constants.ModeClient}
@@ -103,7 +220,7 @@ func TestCtrlEnterTeaParserPreservesEditorNewlineAndPaste(t *testing.T) {
 
 func TestCtrlEnterTeaParserRejectsAliasesAndPaste(t *testing.T) {
 	pasted := "text\r\n\x1b[13;5u\x1b[27;5;13~\x13"
-	msgs := captureCtrlEnterInput(t, strings.NewReader("\r\nctrl+enter\x1b[1;5P\x1b[13;6u\x1b[200~"+pasted+"\x1b[201~\x04"))
+	msgs := captureCtrlEnterInput(t, strings.NewReader("\r\nctrl+enter\x1b[1;5P\x1b[13;7u\x1b[200~"+pasted+"\x1b[201~\x04"))
 	if got := ctrlEnterEvents(msgs); len(got) != 0 {
 		t.Fatalf("unsafe aliases: %#v", got)
 	}
@@ -126,14 +243,14 @@ func TestCtrlEnterTeaParserRejectsAliasesAndPaste(t *testing.T) {
 
 func TestCtrlEnterRepeatReleaseIgnored(t *testing.T) {
 	msgs := captureCtrlEnterInput(t, strings.NewReader("\x1b[13;5:1u\x1b[13;5:2u\x1b[13;5:3u\x04"))
-	if got := ctrlEnterEvents(msgs); !reflect.DeepEqual(got, []ctrlEnterMsg{{true}, {false}, {false}}) {
+	if got := ctrlEnterEvents(msgs); !reflect.DeepEqual(got, []ctrlEnterMsg{{press: true}, {}, {}}) {
 		t.Fatalf("events = %#v", got)
 	}
 }
 
 func TestCtrlEnterDecoderFailsClosed(t *testing.T) {
 	for _, raw := range []string{
-		"\r", "\n", "ctrl+enter", "\x1b[13u", "\x1b[13;1u", "\x1b[13;4u", "\x1b[13;6u", "\x1b[13;7u",
+		"\r", "\n", "ctrl+enter", "\x1b[13u", "\x1b[13;1u", "\x1b[13;4u", "\x1b[13;7u",
 		"\x1b[13;5:0u", "\x1b[13;5:4u", "\x1b[13;5:1;13u", "\x1b[13:13;5u", "\x1b[13;5;1u",
 		"\x1b[13;;5u", "\x1b[13;5:u", "\x1b[13;5 u", "\x1b[>13;5u", "\x1b[13;\x005u",
 		"\x1b[13;5uX", "\x1b[13;5", "\x1b[27;5;10~", "\x1b[1;5P", "\x1b[99999999999999999999999999999999999999;5u",
@@ -155,28 +272,57 @@ func TestCtrlEnterDispatchScope(t *testing.T) {
 	for _, mode := range []constants.AppMode{constants.ModeConnections, constants.ModePayloads, constants.ModeConfirmDelete, constants.ModeLogs} {
 		m.ui.modeStack = []constants.AppMode{mode}
 		m.SetFocus(idMessage)
-		if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{true}); cmd != nil || !handled {
+		if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{press: true}); cmd != nil || !handled {
 			t.Fatalf("published in mode %v", mode)
 		}
 	}
 	m.ui.modeStack = []constants.AppMode{constants.ModeClient}
 	for _, focus := range []string{idTopics, idHistory} {
 		m.SetFocus(focus)
-		if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{true}); cmd != nil || !handled {
+		if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{press: true}); cmd != nil || !handled {
 			t.Fatalf("published with focus %s", focus)
 		}
 	}
 	m.SetFocus(idMessage)
 	m.ui.panelResize = panelResizeState{id: idMessage}
-	if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{true}); cmd != nil || !handled || m.pendingPublishes() != 0 {
+	if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{press: true}); cmd != nil || !handled || m.pendingPublishes() != 0 {
 		t.Fatal("active resize did not suppress publishing")
 	}
 	m.ui.panelResize = panelResizeState{}
-	if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{false}); cmd != nil || !handled {
+	if cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{}); cmd != nil || !handled {
 		t.Fatal("repeat/release published")
 	}
 	if _, handled := m.handleCtrlEnterMsg(tea.KeyMsg{Type: tea.KeyEnter}); handled {
 		t.Fatal("plain Enter consumed")
+	}
+}
+
+func TestRetainedEnterDispatchScope(t *testing.T) {
+	for _, tc := range []struct {
+		name, focus string
+		mode        constants.AppMode
+		resize      bool
+	}{
+		{"topic input", idTopic, constants.ModeClient, false},
+		{"topic chips", idTopics, constants.ModeClient, false},
+		{"history", idHistory, constants.ModeClient, false},
+		{"broker view", idMessage, constants.ModeConnections, false},
+		{"modal", idMessage, constants.ModeConfirmDelete, false},
+		{"resize", idMessage, constants.ModeClient, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := reviewFixture(t, 80, 24)
+			m.SetFocus(tc.focus)
+			m.ui.modeStack = []constants.AppMode{tc.mode}
+			if tc.resize {
+				m.ui.panelResize = panelResizeState{id: idMessage}
+			}
+			draft := m.message.Input().Value()
+			m.Update(ctrlEnterMsg{press: true, retained: true})
+			if m.pendingPublishes() != 0 || m.message.Input().Value() != draft {
+				t.Fatal("retained Enter dispatched outside the active message editor")
+			}
+		})
 	}
 }
 
@@ -190,11 +336,11 @@ func TestCtrlEnterReusesPublishSnapshotAndPending(t *testing.T) {
 	m.topics.Items = []topics.Item{{Name: "good", Publish: true}, {Name: "bad", Publish: true}}
 	m.message.SetPayload("original")
 	m.SetFocus(idMessage)
-	cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{true})
+	cmd, handled := m.handleCtrlEnterMsg(ctrlEnterMsg{press: true})
 	if !handled || cmd == nil || m.pendingPublishes() != 2 || len(m.history.Items()) != 0 {
 		t.Fatal("publish was not dispatched asynchronously")
 	}
-	if repeated, _ := m.handleCtrlEnterMsg(ctrlEnterMsg{true}); repeated != nil {
+	if repeated, _ := m.handleCtrlEnterMsg(ctrlEnterMsg{press: true}); repeated != nil {
 		t.Fatal("duplicated pending publish")
 	}
 	m.message.SetPayload("edited draft")
@@ -217,7 +363,7 @@ func TestCtrlEnterOfflinePreservesDraft(t *testing.T) {
 	m.topics.Items = []topics.Item{{Name: "target", Publish: true}}
 	m.message.SetPayload("offline draft")
 	m.SetFocus(idMessage)
-	cmd, _ := m.handleCtrlEnterMsg(ctrlEnterMsg{true})
+	cmd, _ := m.handleCtrlEnterMsg(ctrlEnterMsg{press: true})
 	applyMQTTCommand(m, cmd)
 	if m.message.Input().Value() != "offline draft" || m.pendingPublishes() != 0 || len(m.payloads.Items()) != 0 || len(m.history.Items()) != 1 || m.history.Items()[0].Kind != "log" {
 		t.Fatal("offline publish did not reuse error path")
@@ -280,7 +426,7 @@ func TestCtrlEnterFramingByteSplitsPasteAndUTF8(t *testing.T) {
 		chunks = append(chunks, []byte{input[i]})
 	}
 	msgs := captureCtrlEnterInput(t, &ctrlEnterChunkReader{chunks: chunks})
-	if got := ctrlEnterEvents(msgs); !reflect.DeepEqual(got, []ctrlEnterMsg{{true}}) {
+	if got := ctrlEnterEvents(msgs); !reflect.DeepEqual(got, []ctrlEnterMsg{{press: true}}) {
 		t.Fatalf("paste triggered publishing: %#v", got)
 	}
 	var paste string
