@@ -50,7 +50,7 @@ func (m *model) updateViewport(msg tea.Msg) tea.Cmd {
 		switch mt := msg.(type) {
 		case tea.KeyMsg:
 			s := mt.String()
-			if s == constants.KeyUp || s == constants.KeyDown || s == constants.KeyPgUp || s == constants.KeyPgDown || s == constants.KeyK || s == constants.KeyJ {
+			if s == constants.KeyUp || s == constants.KeyDown || s == constants.KeyPgUp || s == constants.KeyPgDown || s == constants.KeyK || s == constants.KeyJ || s == constants.KeySpace || s == constants.KeySpaceBar {
 				skipVP = true
 			}
 		case tea.MouseMsg:
@@ -72,11 +72,19 @@ func (m *model) filterHistoryList() {
 	if st := m.history.List().FilterState(); st == list.Filtering || st == list.FilterApplied {
 		q := m.history.List().FilterInput.Value()
 		hitems, litems := history.ApplyFilter(q, m.history.Store(), m.history.ShowArchived())
+		m.history.PreserveSelection(hitems)
+		for i := range hitems {
+			litems[i] = hitems[i]
+		}
 		m.history.SetItems(hitems)
 		m.history.SetFilterQuery(q)
 		m.history.List().SetItems(litems)
 	} else if m.history.FilterQuery() != "" {
 		hitems, litems := history.ApplyFilter(m.history.FilterQuery(), m.history.Store(), m.history.ShowArchived())
+		m.history.PreserveSelection(hitems)
+		for i := range hitems {
+			litems[i] = hitems[i]
+		}
 		m.history.SetItems(hitems)
 		m.history.List().SetItems(litems)
 	} else {

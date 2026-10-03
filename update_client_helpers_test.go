@@ -140,8 +140,8 @@ func TestHandleHistoryClick(t *testing.T) {
 	m.history.List().SetItems(items)
 	m.viewClient()
 	m.SetFocus(idHistory)
-	y := m.ui.elemPos[idHistory] + 1
-	m.history.HandleClick(tea.MouseMsg{Y: y}, m.ui.elemPos[idHistory], m.ui.viewport.YOffset)
+	y := m.ui.elemPos[idHistory] + 1 - m.ui.viewport.YOffset
+	m.history.HandleClick(tea.MouseMsg{X: 3, Y: y}, m.ui.elemPos[idHistory], m.ui.viewport.YOffset)
 	if m.history.List().Index() != 0 {
 		t.Fatalf("expected index 0 got %d", m.history.List().Index())
 	}
@@ -220,7 +220,7 @@ func TestHandleTopicToggleActions(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		m, _ := initialModel(nil)
 		m.mqttClient = &MQTTClient{Client: &fakeClient{}}
-		m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true})
+		applyMQTTCommand(m, m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true}))
 		items := m.history.Items()
 		if len(items) != 1 {
 			t.Fatalf("expected 1 history item, got %d", len(items))
@@ -234,7 +234,7 @@ func TestHandleTopicToggleActions(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		m, _ := initialModel(nil)
 		m.mqttClient = &MQTTClient{Client: &fakeClient{}}
-		m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: false})
+		applyMQTTCommand(m, m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: false}))
 		items := m.history.Items()
 		if len(items) != 1 {
 			t.Fatalf("expected 1 history item, got %d", len(items))
@@ -248,7 +248,7 @@ func TestHandleTopicToggleActions(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		m, _ := initialModel(nil)
 		m.mqttClient = &MQTTClient{Client: &fakeClient{subErr: errors.New("boom")}}
-		m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true})
+		applyMQTTCommand(m, m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true}))
 		items := m.history.Items()
 		if len(items) != 1 {
 			t.Fatalf("expected 1 history item, got %d", len(items))
@@ -262,7 +262,7 @@ func TestHandleTopicToggleActions(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		m, _ := initialModel(nil)
 		m.mqttClient = &MQTTClient{Client: &fakeClient{unsubErr: errors.New("boom")}}
-		m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: false})
+		applyMQTTCommand(m, m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: false}))
 		items := m.history.Items()
 		if len(items) != 1 {
 			t.Fatalf("expected 1 history item, got %d", len(items))
@@ -275,7 +275,7 @@ func TestHandleTopicToggleActions(t *testing.T) {
 	t.Run("no client", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
 		m, _ := initialModel(nil)
-		m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true})
+		applyMQTTCommand(m, m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true}))
 		items := m.history.Items()
 		if len(items) != 1 {
 			t.Fatalf("expected 1 history item, got %d", len(items))

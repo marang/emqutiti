@@ -40,7 +40,8 @@ type ToggleMsg struct {
 // Component implements topic management UI.
 type Component struct {
 	*state
-	api Model
+	api    Model
+	height int
 }
 
 // New constructs a new Component.
@@ -56,9 +57,17 @@ func (c *Component) Init() tea.Cmd { return nil }
 
 // Update manages the topics list UI.
 func (c *Component) Update(msg tea.Msg) tea.Cmd {
+	c.relayout()
 	var cmd, fcmd, tcmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.String() != constants.KeyCtrlD && (c.list.FilterState() == list.Filtering ||
+			(msg.String() == constants.KeyEsc && c.list.FilterState() == list.FilterApplied)) {
+			c.list, cmd = c.list.Update(msg)
+			c.syncSelection()
+			return tea.Batch(cmd, c.api.ListenStatus())
+		}
+		c.syncSelection()
 		switch msg.String() {
 		case constants.KeyCtrlD:
 			return tea.Quit
@@ -66,24 +75,19 @@ func (c *Component) Update(msg tea.Msg) tea.Cmd {
 			return c.api.ShowClient()
 		case constants.KeyLeft:
 			if c.panes.active == 1 {
+				c.SetActivePane(0)
 				fcmd = c.api.SetFocus(idTopicsSubscribed)
 			}
+			return tea.Batch(fcmd, c.api.ListenStatus())
 		case constants.KeyRight:
 			if c.panes.active == 0 {
+				c.SetActivePane(1)
 				fcmd = c.api.SetFocus(idTopicsUnsubscribed)
 			}
+			return tea.Batch(fcmd, c.api.ListenStatus())
 		case constants.KeyDelete:
-			i := c.selected
-			if i >= 0 && i < len(c.Items) {
-				name := c.Items[i].Name
-				rf := func() tea.Cmd { return c.api.SetFocus(c.api.FocusedID()) }
-				c.api.StartConfirm(fmt.Sprintf("Delete topic '%s'? [y/n]", name), "", rf, func() tea.Cmd {
-					cmd := c.RemoveTopic(i)
-					c.RebuildActiveTopicList()
-					return cmd
-				}, nil)
-				return c.api.ListenStatus()
-			}
+			c.confirmDelete(c.selected)
+			return c.api.ListenStatus()
 		case constants.KeyEnter, constants.KeySpaceBar:
 			i := c.selected
 			if i >= 0 && i < len(c.Items) {
@@ -99,50 +103,130 @@ func (c *Component) Update(msg tea.Msg) tea.Cmd {
 		if msg.Action == tea.MouseActionPress {
 			switch msg.Button {
 			case tea.MouseButtonLeft, tea.MouseButtonRight:
-				tcmd = c.HandleClick(msg, c.VP.YOffset)
+				return c.handlePaneClick(msg)
 			}
 		}
 	}
 	c.list, cmd = c.list.Update(msg)
-	if c.panes.active == 0 {
-		c.panes.subscribed.sel = c.list.Index()
-		c.panes.subscribed.page = c.list.Paginator.Page
-	} else {
-		c.panes.unsubscribed.sel = c.list.Index()
-		c.panes.unsubscribed.page = c.list.Paginator.Page
-	}
-	c.selected = c.IndexForPane(c.panes.active, c.list.Index())
+	c.syncSelection()
 	return tea.Batch(fcmd, tcmd, cmd, c.api.ListenStatus())
 }
 
 // View displays the topic manager list.
 func (c *Component) View() string {
+	c.relayout()
 	c.api.ResetElemPos()
 	c.api.SetElemPos(idTopicsSubscribed, 1)
 	c.api.SetElemPos(idTopicsUnsubscribed, 1)
-	help := ui.InfoStyle.Render("[space] toggle  [p] publish  [del] delete  [esc] back")
-	activeView := c.list.View()
-	var left, right string
-	if c.panes.active == 0 {
-		other := list.New(c.UnsubscribedItems(), list.NewDefaultDelegate(), c.list.Width(), c.list.Height())
-		other.DisableQuitKeybindings()
-		other.SetShowTitle(false)
-		other.Paginator.Page = c.panes.unsubscribed.page
-		other.Select(c.panes.unsubscribed.sel)
-		left = ui.LegendBox(activeView, "Subscribed", c.api.Width()/2-2, 0, ui.ColBlue, c.api.FocusedID() == idTopicsSubscribed, -1)
-		right = ui.LegendBox(other.View(), "Unsubscribed", c.api.Width()/2-2, 0, ui.ColBlue, false, -1)
-	} else {
-		other := list.New(c.SubscribedItems(), list.NewDefaultDelegate(), c.list.Width(), c.list.Height())
-		other.DisableQuitKeybindings()
-		other.SetShowTitle(false)
-		other.Paginator.Page = c.panes.subscribed.page
-		other.Select(c.panes.subscribed.sel)
-		left = ui.LegendBox(other.View(), "Subscribed", c.api.Width()/2-2, 0, ui.ColBlue, false, -1)
-		right = ui.LegendBox(activeView, "Unsubscribed", c.api.Width()/2-2, 0, ui.ColBlue, c.api.FocusedID() == idTopicsUnsubscribed, -1)
-	}
+	help := c.footer(c.api.Width() - 4)
+	leftList, rightList := c.paneList(0), c.paneList(1)
+	left := ui.LegendBox(leftList.View(), "Subscribed", c.list.Width()+2, 0, ui.ColBlue, c.api.FocusedID() == idTopicsSubscribed, -1)
+	right := ui.LegendBox(rightList.View(), "Unsubscribed", c.list.Width()+2, 0, ui.ColBlue, c.api.FocusedID() == idTopicsUnsubscribed, -1)
 	panes := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	content := lipgloss.JoinVertical(lipgloss.Left, panes, help)
 	return c.api.OverlayHelp(content)
+}
+
+// SetSize lays out both manager panes within the terminal, including its header.
+func (c *Component) SetSize(width, height int) {
+	c.height = height
+	ui.SizeManagerList(&c.list, max(1, width/2-4), height-3-lipgloss.Height(c.footer(width-4)))
+}
+
+func (c *Component) relayout() {
+	height := c.height
+	if host, ok := c.api.(interface{ Height() int }); ok {
+		height = host.Height()
+	}
+	if height <= 0 {
+		height = 24
+	}
+	c.SetSize(c.api.Width(), height)
+}
+
+func (c *Component) footer(width int) string {
+	return ui.ListFooter(width, "[space] toggle", "[p] publish", "[del] delete", "[/] filter", "[esc] back")
+}
+
+func (c *Component) paneList(pane int) list.Model {
+	if pane == c.panes.active {
+		return c.list
+	}
+	items, sel := c.SubscribedItems(), c.panes.subscribed.sel
+	if pane == 1 {
+		items, sel = c.UnsubscribedItems(), c.panes.unsubscribed.sel
+	}
+	l := list.New(items, list.NewDefaultDelegate(), c.list.Width(), c.list.Height())
+	l.DisableQuitKeybindings()
+	ui.SizeManagerList(&l, c.list.Width(), c.list.Height())
+	if len(items) > 0 {
+		l.Select(min(max(0, sel), len(items)-1))
+	}
+	return l
+}
+
+func (c *Component) syncSelection() {
+	c.selected = -1
+	if item, ok := c.list.SelectedItem().(Item); ok {
+		for i, candidate := range c.Items {
+			if candidate.Name == item.Name {
+				c.selected = i
+				break
+			}
+		}
+	}
+	pane := &c.panes.subscribed
+	if c.panes.active == 1 {
+		pane = &c.panes.unsubscribed
+	}
+	pane.sel, pane.page = c.list.GlobalIndex(), c.list.Paginator.Page
+}
+
+func (c *Component) handlePaneClick(msg tea.MouseMsg) tea.Cmd {
+	boxWidth := c.list.Width() + 2
+	for pane := 0; pane < 2; pane++ {
+		l := c.paneList(pane)
+		idx := ui.ListRowAt(l, msg.X-pane*boxWidth-1, msg.Y-2, 2, 1)
+		if idx < 0 {
+			continue
+		}
+		name := l.VisibleItems()[idx].(Item).Name
+		c.SetActivePane(pane)
+		id := idTopicsSubscribed
+		if pane == 1 {
+			id = idTopicsUnsubscribed
+		}
+		fcmd := c.api.SetFocus(id)
+		for i, item := range c.list.VisibleItems() {
+			if item.(Item).Name == name {
+				c.list.Select(i)
+				break
+			}
+		}
+		c.syncSelection()
+		if msg.Button == tea.MouseButtonRight {
+			c.confirmDelete(c.selected)
+		}
+		return tea.Batch(fcmd, c.api.ListenStatus())
+	}
+	return nil
+}
+
+func (c *Component) confirmDelete(index int) {
+	if index < 0 || index >= len(c.Items) {
+		return
+	}
+	name, focused := c.Items[index].Name, c.api.FocusedID()
+	c.api.StartConfirm(fmt.Sprintf("Delete topic '%s'? [y/n]", name), "", func() tea.Cmd {
+		return c.api.SetFocus(focused)
+	}, func() tea.Cmd {
+		for i, item := range c.Items {
+			if item.Name == name {
+				return c.RemoveTopic(i)
+			}
+		}
+		return nil
+	}, nil)
 }
 
 func (c *Component) Focus() tea.Cmd { return nil }
@@ -236,53 +320,67 @@ func (c *Component) IndexForPane(pane, idx int) int {
 	return -1
 }
 
-// RebuildActiveTopicList updates the active list to show the current pane.
+// RebuildActiveTopicList refreshes the manager pane without stealing client selection.
 func (c *Component) RebuildActiveTopicList() {
-	if c.panes.active == 0 {
-		items := c.SubscribedItems()
-		if c.panes.subscribed.sel >= len(items) {
-			c.panes.subscribed.sel = len(items) - 1
+	clientSelection := ""
+	if focused := c.api.FocusedID(); focused != idTopicsSubscribed && focused != idTopicsUnsubscribed &&
+		c.selected >= 0 && c.selected < len(c.Items) {
+		clientSelection = c.Items[c.selected].Name
+	}
+	items, pane := c.SubscribedItems(), &c.panes.subscribed
+	if c.panes.active == 1 {
+		items, pane = c.UnsubscribedItems(), &c.panes.unsubscribed
+	}
+	selectedName := ""
+	if item, ok := c.list.SelectedItem().(Item); ok {
+		selectedName = item.Name
+	}
+	filter, state := c.list.FilterValue(), c.list.FilterState()
+	c.list.SetItems(items)
+	if state != list.Unfiltered {
+		c.list.SetFilterText(filter)
+		if state == list.Filtering {
+			c.list.SetFilterState(state)
 		}
-		if c.panes.subscribed.sel < 0 && len(items) > 0 {
-			c.panes.subscribed.sel = 0
+	}
+	visible := c.list.VisibleItems()
+	if len(visible) > 0 {
+		selected := min(max(0, pane.sel), len(visible)-1)
+		for i, item := range visible {
+			if item.(Item).Name == selectedName {
+				selected = i
+				break
+			}
 		}
-		c.list.SetItems(items)
-		if len(items) > 0 {
-			c.list.Select(c.panes.subscribed.sel)
+		c.list.Select(selected)
+	}
+	c.syncSelection()
+	if clientSelection != "" {
+		for i, item := range c.Items {
+			if item.Name == clientSelection {
+				c.SetSelected(i)
+				break
+			}
 		}
-		c.list.Paginator.Page = c.panes.subscribed.page
-		c.selected = c.IndexForPane(0, c.panes.subscribed.sel)
-	} else {
-		items := c.UnsubscribedItems()
-		if c.panes.unsubscribed.sel >= len(items) {
-			c.panes.unsubscribed.sel = len(items) - 1
-		}
-		if c.panes.unsubscribed.sel < 0 && len(items) > 0 {
-			c.panes.unsubscribed.sel = 0
-		}
-		c.list.SetItems(items)
-		if len(items) > 0 {
-			c.list.Select(c.panes.unsubscribed.sel)
-		}
-		c.list.Paginator.Page = c.panes.unsubscribed.page
-		c.selected = c.IndexForPane(1, c.panes.unsubscribed.sel)
 	}
 }
 
 // SetActivePane switches focus to the given pane index and rebuilds the list.
 func (c *Component) SetActivePane(idx int) {
-	if idx == c.panes.active {
+	if idx < 0 || idx > 1 || idx == c.panes.active {
 		return
 	}
 	if c.panes.active == 0 {
-		c.panes.subscribed.sel = c.list.Index()
+		c.panes.subscribed.sel = c.list.GlobalIndex()
 		c.panes.subscribed.page = c.list.Paginator.Page
 	} else {
-		c.panes.unsubscribed.sel = c.list.Index()
+		c.panes.unsubscribed.sel = c.list.GlobalIndex()
 		c.panes.unsubscribed.page = c.list.Paginator.Page
 	}
 	c.panes.active = idx
+	c.list.ResetFilter()
 	c.RebuildActiveTopicList()
+	c.syncSelection()
 }
 
 // ToggleTopic toggles the subscription state of the topic at index and emits an event.
@@ -393,12 +491,7 @@ func (c *Component) HandleClick(msg tea.MouseMsg, vpOffset int) tea.Cmd {
 	c.SetSelected(idx)
 	// Left click only focuses; Enter/Space toggles subscription.
 	if msg.Type == tea.MouseRight {
-		name := c.Items[idx].Name
-		focused := c.api.FocusedID()
-		rf := func() tea.Cmd { return c.api.SetFocus(focused) }
-		c.api.StartConfirm(fmt.Sprintf("Delete topic '%s'? [y/n]", name), "", rf, func() tea.Cmd {
-			return c.RemoveTopic(idx)
-		}, nil)
+		c.confirmDelete(idx)
 	}
 	return nil
 }

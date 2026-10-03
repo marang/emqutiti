@@ -12,8 +12,8 @@ import (
 // Test that clicking the help icon opens the help view.
 func TestHelpIconClick(t *testing.T) {
 	m, _ := initialModel(nil)
-	m.ui.width = helpReflowWidth - 20
-	msg := tea.MouseMsg{X: m.ui.width - 1, Y: 1, Type: tea.MouseLeft, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress}
+	m.ui.width = 40
+	msg := tea.MouseMsg{X: m.ui.width - 1, Y: 0, Type: tea.MouseLeft, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress}
 	m.Update(msg)
 	if m.CurrentMode() != constants.ModeHelp {
 		t.Fatalf("expected ModeHelp, got %v", m.CurrentMode())
@@ -22,21 +22,20 @@ func TestHelpIconClick(t *testing.T) {
 
 func TestHelpIconHoverDoesNotOpenHelp(t *testing.T) {
 	m, _ := initialModel(nil)
-	m.ui.width = helpReflowWidth - 20
-	msg := tea.MouseMsg{X: m.ui.width - 1, Y: 1, Type: tea.MouseMotion, Action: tea.MouseActionMotion}
+	m.ui.width = 40
+	msg := tea.MouseMsg{X: m.ui.width - 1, Y: 0, Type: tea.MouseMotion, Action: tea.MouseActionMotion}
 	m.Update(msg)
 	if m.CurrentMode() == constants.ModeHelp {
 		t.Fatalf("hover should not open help")
 	}
 }
 
-// Test that the help icon reflows to the second line when space is limited.
-func TestHelpIconReflows(t *testing.T) {
+func TestHelpIconUsesOneHeaderRow(t *testing.T) {
 	m, _ := initialModel(nil)
-	m.ui.width = helpReflowWidth - 20
+	m.ui.width = 40
 	view := m.overlayHelp("")
 	lines := strings.Split(view, "\n")
-	if len(lines) < 2 || strings.Contains(lines[0], "?") || !strings.Contains(lines[1], "?") {
-		t.Fatalf("help icon did not reflow: %q", view)
+	if len(lines) != 1 || !strings.Contains(lines[0], "?") {
+		t.Fatalf("help icon must stay in the header: %q", view)
 	}
 }

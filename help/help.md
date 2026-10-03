@@ -10,10 +10,13 @@
 | Alt+R | Manage traces |
 | Ctrl+B | Open broker manager |
 | Ctrl+X | Disconnect from broker after confirmation; offers immediate reconnect or opens broker manager |
-| Ctrl+S | Publish message |
-| Ctrl+E | Publish retained message |
+| Ctrl+S | Publish message (message editor focused) |
+| Ctrl+Enter | Publish message on supported Linux terminals (message editor focused) |
+| Ctrl+E | Publish retained message (message editor focused) |
 | Ctrl+L | Open log viewer |
 | Ctrl+Shift+Up / Ctrl+Shift+Down | Resize panels |
+| Ctrl+R | Reset focused client panel height |
+| Ctrl+Up / Ctrl+Down or Ctrl+K / Ctrl+J | Scroll current view |
 
 ## Navigation
 
@@ -21,8 +24,59 @@
 | --- | ------ |
 | Esc | Back |
 | Tab / Shift+Tab | Cycle focus |
-| Up/Down or j/k | Scroll view |
+| Up/Down or j/k | Move in focused lists (outside text entry) |
 | Left / Right | Switch pane |
+
+The global shortcut header occupies one row at every width. On the client
+screen, two context-help rows stay above the scrollable content and describe
+the hovered area or keyboard focus. Hover does not change colors.
+
+## Panel heights
+
+- Drag the bottom border of Topics, Message or History with the left mouse button.
+  Release applies the height; `Esc` restores the starting height and scroll position.
+- `Ctrl+Shift+Up/Down` resizes the focused panel; `Ctrl+R` resets its height.
+  Topics grows in chip-row steps. Bounds keep content and local help readable.
+- View changes preserve accepted heights. Changing views or resizing the terminal
+  during a drag cancels it; the new terminal size clamps heights to fit.
+- Dragging preserves focus, drafts, selections and filters. Editing and publish
+  shortcuts are suspended until the drag ends; `Ctrl+D` still exits.
+
+## Publishing
+
+- With the message editor focused, `Ctrl+S` publishes or `Ctrl+E` publishes
+  retained, to all marked publish targets or, if none are marked, the selected topic.
+- Publishing is asynchronous. Pending feedback names the original targets;
+  repeat sends are ignored until the current batch completes. Keep editing:
+  each request uses its original payload, target, retain flag and connection,
+  and completion never clears or replaces the draft.
+- Only successful MQTT API results create publish history, saved payloads and
+  success pulses. Errors appear in history and message context; partial batches
+  record only successful targets. Old-connection results are ignored.
+- QoS 0 API success does not confirm delivery to subscribers. Errors remain
+  available in message context after pending work finishes.
+- Dates and empty-input hints use adaptive medium gray; message text and help
+  remain higher contrast.
+
+### Terminal shortcut compatibility
+
+`Ctrl+Enter` is additional non-retained publishing on Linux TTY input. The
+terminal must send `CSI 13;5u`, `CSI 13;5:1u` or `CSI 27;5;13~`. Repeats and
+release events do not send another message. Plain `Enter`, pasted text and
+unrelated keys never become publish commands. Legacy terminals that send the
+same bytes for `Enter` and `Ctrl+Enter` keep inserting a newline; use `Ctrl+S`.
+Other platforms retain their native input path and `Ctrl+S`.
+
+The app leaves keyboard protocol modes unchanged. A terminal-specific mapping
+can emit a distinct key without changing other keys. For example, Kitty:
+
+```conf
+map ctrl+enter send_text normal,application \x1b[13;5u
+```
+
+The encoding follows the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/);
+mapping syntax is documented in [Kitty's send_text reference](https://sw.kovidgoyal.net/kitty/conf/#shortcut-kitty.SendText).
+This optional terminal mapping is not installed by Emqutiti.
 
 ## Broker Manager
 
@@ -35,26 +89,60 @@
 | Delete | Remove selected profile |
 | Ctrl+O | Toggle default profile |
 
+Broker forms scroll with `Ctrl+Up` / `Ctrl+Down`, `Ctrl+K` / `Ctrl+J` or the
+mouse wheel. `Tab` / `Shift+Tab` reveals each field. `Enter` saves and `Esc`
+cancels; the footer stays visible. Narrow layouts stack labels and inputs.
+
+## Topic input and chips
+
+- Compact hints put keyboard shortcuts in square brackets, such as `[Enter]`,
+  `[p]` and `[Del]`; these are keys, not words to type into the topic input.
+- Topic input: type a new topic; `Enter` adds and subscribes. Ordinary letters
+  remain text, including `p`. Existing-topic help does not promise an add action.
+- Topic chips: `Enter` toggles subscription, `p` toggles the publish target,
+  and `Delete` confirms removal. Left-click selects a chip; right-click confirms removal.
+- Subscribed names have a cyan underline on capable ANSI terminals;
+  completely pink-filled chips with dark
+  text are the actual publish targets, including the selected fallback when no
+  targets are marked with `p`. The selected chip has a pink outline; other
+  unfilled borders are neutral. Subscribe underlines and publish fills remain visible
+  during border pulses. No-color suffixes are `[sub]`, `[pub]`, `[sub,pub]`
+  and `[off]`, including the fallback's effective publish state.
+- The Message title distinguishes `publish to (selected)` from `publish to (marked)`.
+  Marking the fallback with `p` keeps its fill but switches to marked-target mode;
+  changing selection then leaves those marked destinations unchanged.
+- Subscribe/unsubscribe results and list refreshes preserve the selected chip,
+  including a newer selection made while the MQTT request was pending.
+- `Topics: N | subscribed: S` shows the total number of topics and subscriptions,
+  not the selection position or number of publish targets.
+
 ## Topics manager
 
 | Key | Action |
 | --- | ------ |
 | Enter / Space | Toggle subscription |
-| p | Toggle publish highlight |
+| p | Toggle publish target |
 | Delete | Delete topic |
+
+While a manager filter is being edited, typing, `Delete` and `Enter` belong
+to the filter rather than item actions. `Esc` clears the filter before leaving.
 
 ## Payloads manager
 
 | Key | Action |
 | --- | ------ |
 | Enter | Load payload |
-| Delete | Delete payload |
+| Delete | Confirm deletion of selected payload |
+
+Left-click loads the clicked row; right-click confirms deletion of that row.
+Blank clicks do nothing. The confirmation keeps the entry's identity if rows
+change, so a replacement or a newly added payload cannot be deleted instead.
 
 ## History
 
 | Key | Action |
 | --- | ------ |
-| Space | Toggle selection |
+| Space / Shift+Space | Toggle current entry without clearing other marks |
 | Shift+Up / Shift+Down | Extend selection |
 | Ctrl+A | Select all |
 | Ctrl+C | Copy selected history entries |
@@ -64,7 +152,34 @@
 | Ctrl+F | Clear all history filters |
 | Enter | View full message |
 
+With History focused, `Shift+Up` / `Shift+Down` selects a range of entries;
+`Shift+Click` adds a range without clearing existing marks. `Space` /
+`Shift+Space` toggles just the current entry. `Ctrl+C` copies selected
+entries, or the current entry when nothing is selected. MQTT entries include
+the topic and full payload; multiple entries are separated by newlines.
+Range selection is unavailable in archived history. The client context hint
+shows the selection shortcuts when History is hovered or focused.
+
+Most terminals send the same space for `Space` and `Shift+Space`; both toggle
+the current History row. Linux TTY input also accepts the distinct CSI-u
+`CSI 32;2u` Shift+Space event. Editing fields keep ordinary spaces as text.
+
 Retained messages are labeled "(retained)".
+History dates use adaptive medium gray. Log messages and shortcut hints retain
+higher contrast on light and dark backgrounds, including selected entries.
+
+History filters fit the terminal: `Tab` / `Shift+Tab` moves between fields,
+`PgUp` / `PgDown`, the mouse wheel or `Ctrl+Up` / `Ctrl+Down` scrolls;
+`Enter` applies and `Esc` cancels. Clicking a suggestion selects it.
+Full message details wrap the complete payload and scroll with arrows,
+`PgUp` / `PgDown` or the mouse wheel. `Ctrl+C` copies the full payload;
+`Esc` returns. Focus brings the active history entry into view.
+
+## Confirmations
+
+Long prompts wrap and scroll with `PgUp` / `PgDown`, the mouse wheel or
+`Ctrl+Up` / `Ctrl+Down`. The `y` / `n` choices stay visible and clickable;
+`Esc` cancels without applying the action.
 
 ## Traces manager
 
@@ -94,4 +209,3 @@ Retained messages are labeled "(retained)".
 - `--start TIME` Optional RFC3339 start time (e.g., `--start "2025-08-05T11:47:00Z"`)
 - `--end TIME` Optional RFC3339 end time (e.g., `--end "2025-08-05T11:49:00Z"`)
 - Omit `-p/--profile` when tracing to pick a connection interactively before starting
-

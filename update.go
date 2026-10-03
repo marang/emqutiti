@@ -6,15 +6,31 @@ import (
 	"github.com/marang/emqutiti/connections"
 	"github.com/marang/emqutiti/payloads"
 	"github.com/marang/emqutiti/topics"
+	"github.com/marang/emqutiti/traces"
 )
 
 // Update routes messages based on the current mode.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if cmd, handled := m.handlePanelResize(msg); handled {
+		return m, cmd
+	}
+	if cmd, handled := m.handleCtrlEnterMsg(msg); handled {
+		return m, cmd
+	}
+	if cmd, handled := m.handleShiftedSpaceMsg(msg); handled {
+		return m, cmd
+	}
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		return m, m.handleWindowSize(msg)
 	case animationTickMsg:
 		return m, m.handleAnimationTick()
+	case publishResultMsg:
+		return m, m.handlePublishResult(msg)
+	case subscriptionResultMsg:
+		return m, m.handleSubscriptionResult(msg)
+	case traces.ReportMsg:
+		return m, m.traces.HandleReport(msg)
 	case connections.StatusMessage:
 		return m, m.handleStatusMessage(msg)
 	case MQTTMessage:
@@ -23,11 +39,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ui.listeners.mqtt = false
 		return m, nil
 	case topics.ToggleMsg:
-		cmds := []tea.Cmd{m.handleTopicToggle(msg)}
-		if m.topicIndexByName(msg.Topic) >= 0 {
-			cmds = append(cmds, m.startTopicPulse(msg.Topic))
-		}
-		return m, tea.Batch(cmds...)
+		return m, m.handleTopicToggle(msg)
 	case payloads.LoadMsg:
 		m.topics.SetTopic(msg.Topic)
 		m.message.SetPayload(msg.Payload)

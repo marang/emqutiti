@@ -37,7 +37,7 @@ func (m *model) HandleClientKey(msg tea.KeyMsg) tea.Cmd {
 		return m.handleHistoryFilterKey()
 	case constants.KeyCtrlF:
 		return m.handleClearFilterKey()
-	case constants.KeySpace:
+	case constants.KeySpace, constants.KeySpaceBar:
 		return m.handleSpaceKey()
 	case constants.KeyShiftUp:
 		return m.handleShiftUpKey()
@@ -55,6 +55,8 @@ func (m *model) HandleClientKey(msg tea.KeyMsg) tea.Cmd {
 		return m.handleResizeUpKey()
 	case constants.KeyCtrlShiftDown:
 		return m.handleResizeDownKey()
+	case constants.KeyCtrlR:
+		return m.resetFocusedPanel()
 	case constants.KeyCtrlA:
 		return m.handleSelectAllKey()
 	case constants.KeyUp, constants.KeyDown, constants.KeyK, constants.KeyJ:
@@ -132,23 +134,21 @@ func (m *model) handleScrollKeys(key string) tea.Cmd {
 // publishMessage publishes the current message to flagged topics or the
 // selected topic if none are flagged. When retained is true, the message is
 // published with the retained flag and noted in history.
-func (m *model) publishMessage(retained bool) {
+func (m *model) publishMessage(retained bool) tea.Cmd {
 	if m.ui.focusOrder[m.ui.focusIndex] != idMessage {
-		return
+		return nil
 	}
+	if m.pendingPublishes() > 0 {
+		return nil
+	}
+	m.mqttOps.publishError = ""
 	payload := m.message.Input().Value()
 	targets := m.publishTargets()
+	var cmds []tea.Cmd
 	for _, topic := range targets {
-		m.payloads.Add(topic, payload)
-		msg := fmt.Sprintf("Published to %s: %s", topic, payload)
-		if retained {
-			msg = fmt.Sprintf("Published retained to %s: %s", topic, payload)
-		}
-		m.history.Append(topic, payload, "pub", retained, msg)
-		if m.mqttClient != nil {
-			m.mqttClient.Publish(topic, 0, retained, payload)
-		}
+		cmds = append(cmds, m.queuePublish(topic, payload, retained))
 	}
+	return tea.Batch(cmds...)
 }
 
 // handlePublishKey publishes the current message without the retained flag.
@@ -156,12 +156,7 @@ func (m *model) handlePublishKey() tea.Cmd {
 	if m.ui.focusOrder[m.ui.focusIndex] != idMessage {
 		return nil
 	}
-	targets := m.publishTargets()
-	if len(targets) == 0 {
-		return nil
-	}
-	m.publishMessage(false)
-	return tea.Batch(m.startTopicPulses(targets), m.startHistoryPulse())
+	return m.publishMessage(false)
 }
 
 // handlePublishRetainKey publishes the current message with the retained flag.
@@ -169,12 +164,7 @@ func (m *model) handlePublishRetainKey() tea.Cmd {
 	if m.ui.focusOrder[m.ui.focusIndex] != idMessage {
 		return nil
 	}
-	targets := m.publishTargets()
-	if len(targets) == 0 {
-		return nil
-	}
-	m.publishMessage(true)
-	return tea.Batch(m.startTopicPulses(targets), m.startHistoryPulse())
+	return m.publishMessage(true)
 }
 
 // handleDeleteKey dispatches deletion based on focus.

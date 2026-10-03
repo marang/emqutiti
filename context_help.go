@@ -2,6 +2,7 @@ package emqutiti
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,8 +33,12 @@ func truncateTopicName(name string, width int) string {
 }
 
 func (m *model) publishTargets() []string {
+	return effectivePublishTargets(m.topics.Items, m.topics.Selected())
+}
+
+func effectivePublishTargets(items []topics.Item, selected int) []string {
 	var targets []string
-	for _, t := range m.topics.Items {
+	for _, t := range items {
 		if t.Publish {
 			targets = append(targets, t.Name)
 		}
@@ -41,9 +46,8 @@ func (m *model) publishTargets() []string {
 	if len(targets) > 0 {
 		return targets
 	}
-	sel := m.topics.Selected()
-	if sel >= 0 && sel < len(m.topics.Items) {
-		return []string{m.topics.Items[sel].Name}
+	if selected >= 0 && selected < len(items) {
+		return []string{items[selected].Name}
 	}
 	return nil
 }
@@ -62,9 +66,9 @@ func topicStateLegend() string {
 	return "subscribed = read  publish target = write  inactive = off"
 }
 
-func topicStateHint(t topics.Item) string {
+func topicStateHint(t topics.Item, publishing bool) string {
 	switch {
-	case t.Publish:
+	case publishing:
 		if t.Subscribed {
 			return "Read subscription and publish target"
 		}
@@ -76,17 +80,12 @@ func topicStateHint(t topics.Item) string {
 	}
 }
 
-func topicActionHint(t topics.Item) string {
-	name := truncateTopicName(t.Name, 36)
-	subAction := "subscribes to"
-	if t.Subscribed {
-		subAction = "unsubscribes"
+func topicShortcutHint(width int) string {
+	full := "[Enter] toggle sub  [p] toggle pub  [Del] remove"
+	if lipgloss.Width(full) <= width {
+		return full
 	}
-	pubAction := "marks it as publish target"
-	if t.Publish {
-		pubAction = "clears publish target"
-	}
-	return fmt.Sprintf("Topic %q: %s. Enter %s; p %s.", name, topicStateHint(t), subAction, pubAction)
+	return "[Enter] sub  [p] pub  [Del] remove"
 }
 
 func (m *model) topicHoverHint(idx int) string {
@@ -94,7 +93,7 @@ func (m *model) topicHoverHint(idx int) string {
 		return ""
 	}
 	t := m.topics.Items[idx]
-	return fmt.Sprintf("%s. Left click selects; Enter toggles read subscription; p toggles publish target; right click/Delete removes.", topicStateHint(t))
+	return topicStateHint(t, slices.Contains(m.publishTargets(), t.Name)) + "."
 }
 
 func (m *model) selectedTopicHint() string {
@@ -102,7 +101,7 @@ func (m *model) selectedTopicHint() string {
 	if sel < 0 || sel >= len(m.topics.Items) {
 		return "Topics: no selected topic. Add a topic first."
 	}
-	return topicActionHint(m.topics.Items[sel])
+	return "Topics: " + m.topicHoverHint(sel)
 }
 
 func (m *model) messageTargetText(limit int) string {
@@ -114,23 +113,50 @@ func (m *model) messageTargetText(limit int) string {
 }
 
 func (m *model) messageTargetPreview() string {
-	explicit := m.explicitPublishTargets()
-	switch {
-	case len(explicit) > 0:
-		return "Message -> publish to: " + formatTopicNames(explicit, 2)
-	case len(m.publishTargets()) > 0:
-		return "Message -> publish to: " + formatTopicNames(m.publishTargets(), 1)
-	default:
+	mode := "selected"
+	targets := m.publishTargets()
+	if targets := m.pendingPublishTargets(); len(targets) > 0 {
+		return "Message -> publishing to: " + formatTopicNames(targets, 2)
+	}
+	if len(targets) == 0 {
 		return "Message -> no target"
 	}
+	if len(m.explicitPublishTargets()) > 0 {
+		mode = "marked"
+	}
+	prefix := "Message -> publish to (" + mode + "): "
+	if m.ui.width > 0 && m.ui.width-6-lipgloss.Width(prefix) < 8 {
+		prefix = "Publish to (" + mode + "): "
+	}
+	return prefix + formatTopicNames(targets, 2)
 }
 
 func (m *model) messageHint() string {
+	if targets := m.pendingPublishTargets(); len(targets) > 0 {
+		return "Message: publishing to " + formatTopicNames(targets, topicSummaryLimit) + "."
+	}
+	if m.mqttOps.publishError != "" {
+		return "Message: " + m.mqttOps.publishError
+	}
 	targets := m.messageTargetText(topicSummaryLimit)
 	if targets == "no target" {
 		return "Message: no publish target. Add or select a topic first."
 	}
-	return fmt.Sprintf("Message: Ctrl+S publishes to %s; Ctrl+E publishes retained.", targets)
+	if !m.isConnected() {
+		return fmt.Sprintf("Message: broker disconnected. Publish to: %s.", targets)
+	}
+	return "Message: publish to " + targets + "."
+}
+
+func (m *model) historyHint() string {
+	if m.history.ShowArchived() {
+		return "History: archived messages."
+	}
+	full := "History: [Shift+Up/Down]/[Shift+Click] range; [Shift+Space] toggle"
+	if lipgloss.Width(full)+2 <= m.ui.width-4 {
+		return full
+	}
+	return "History: [Shift+Up/Down] select"
 }
 
 func (m *model) focusHint(id string) string {
@@ -138,15 +164,18 @@ func (m *model) focusHint(id string) string {
 	case idTopic:
 		topic := strings.TrimSpace(m.topics.Input.Value())
 		if topic == "" {
-			return "Topic input: type a topic and press Enter to subscribe."
+			return "Topic input: type a topic and press [Enter] to subscribe."
 		}
-		return fmt.Sprintf("Topic input: Enter subscribes to %q.", truncateTopicName(topic, 40))
+		if m.topics.HasTopic(topic) {
+			return fmt.Sprintf("Topic input: %q already exists.", truncateTopicName(topic, 40))
+		}
+		return fmt.Sprintf("Topic input: [Enter] subscribes to %q.", truncateTopicName(topic, 40))
 	case idTopics:
 		return m.selectedTopicHint()
 	case idMessage:
 		return m.messageHint()
 	case idHistory:
-		return "History: Enter opens details; / filters; a archives; Delete removes."
+		return m.historyHint()
 	case idHelp:
 		return "Help: click ? or focus it to open the full shortcut and workflow guide."
 	default:
@@ -169,6 +198,9 @@ func (m *model) hoverHint() (string, bool) {
 }
 
 func (m *model) contextHelpText() string {
+	if hint := m.panelResizeHint(); hint != "" {
+		return hint
+	}
 	if hint, ok := m.hoverHint(); ok {
 		return "~ " + hint
 	}
@@ -176,17 +208,53 @@ func (m *model) contextHelpText() string {
 }
 
 func (m *model) contextHelpDetailText() string {
+	if m.ui.panelResize.id != "" {
+		return "[Esc] cancel | Release to apply"
+	}
+	if m.ui.hoveredResizeID != "" {
+		return "Hold left mouse button and drag"
+	}
 	id := m.FocusedID()
 	if m.ui.hoveredID != "" {
 		id = m.ui.hoveredID
 	}
 	switch id {
-	case idTopic, idTopics:
-		return "Enter toggles subscribe  p toggles publish  Delete removes"
+	case idTopic:
+		if topic := strings.TrimSpace(m.topics.Input.Value()); topic != "" && !m.topics.HasTopic(topic) {
+			full := "[Enter] adds and subscribes | [Tab] to topics"
+			if lipgloss.Width(full) <= m.ui.width-4 {
+				return full
+			}
+			return "[Enter] subscribe  [Tab] topics"
+		}
+		return "[Tab] to topics | Type a new topic"
+	case idTopics:
+		return topicShortcutHint(m.ui.width - 4)
 	case idMessage:
-		return "Publish targets are marked on topic chips | Ctrl+S publish  Ctrl+E retain"
+		if m.pendingPublishes() > 0 {
+			return "Waiting for MQTT result | Draft remains editable"
+		}
+		if !m.isConnected() {
+			full := "[Ctrl+B] brokers | [Ctrl+S] reports disconnected"
+			if lipgloss.Width(full) <= m.ui.width-4 {
+				return full
+			}
+			return "[Ctrl+B] brokers  [Ctrl+S] offline"
+		}
+		if len(m.publishTargets()) == 0 {
+			return "Select or add a topic before publishing"
+		}
+		full := "[Ctrl+S]/[Ctrl+Enter*] publish  [Ctrl+E] retained"
+		if m.ui.modifiedKeyInput && lipgloss.Width(full) <= m.ui.width-4 {
+			return full
+		}
+		return "[Ctrl+S] publish  [Ctrl+E] retained"
 	case idHistory:
-		return "History stores received and published messages | Enter details  / filter"
+		full := "[Enter] details  [/] filter  [Ctrl+C] copy"
+		if lipgloss.Width(full) <= m.ui.width-4 {
+			return full
+		}
+		return "[Enter] view [/] find [Ctrl+C] copy"
 	case idHelp:
 		return "Open help for full shortcuts and MQTT workflow notes"
 	default:
@@ -212,30 +280,27 @@ func (m *model) renderContextHelp() string {
 
 func (m *model) pointOverHelp(msg tea.MouseMsg) bool {
 	helpWidth := lipgloss.Width(ui.HelpStyle.Render("?"))
-	helpY := 0
-	if m.ui.width < helpReflowWidth {
-		helpY = 1
-	}
-	return msg.Y == helpY && msg.X >= m.ui.width-helpWidth
+	return msg.Y == 0 && msg.X >= m.ui.width-helpWidth && msg.X < m.ui.width
 }
 
 func (m *model) updateHoverState(msg tea.MouseMsg) {
 	m.ui.hoveredID = ""
 	m.ui.hoveredTopic = -1
+	m.ui.hoveredResizeID = m.panelResizeBorderAt(msg)
 	if m.pointOverHelp(msg) {
 		m.ui.hoveredID = idHelp
 		return
 	}
 	y := m.clientContentY(msg.Y)
 	switch {
-	case pointInElement(y, m.ui.elemPos[idTopic], 3):
+	case pointInElement(y, m.ui.elemPos[idTopic]-1, m.ui.elemHeight[idTopic]):
 		m.ui.hoveredID = idTopic
-	case pointInElement(y, m.ui.elemPos[idTopics], m.layout.topics.height+4):
+	case pointInElement(y, m.ui.elemPos[idTopics]-1, m.ui.elemHeight[idTopics]):
 		m.ui.hoveredID = idTopics
 		m.ui.hoveredTopic = m.topics.TopicAtPosition(msg.X, y)
-	case pointInElement(y, m.ui.elemPos[idMessage], m.layout.message.height+2):
+	case pointInElement(y, m.ui.elemPos[idMessage]-1, m.ui.elemHeight[idMessage]):
 		m.ui.hoveredID = idMessage
-	case pointInElement(y, m.ui.elemPos[idHistory], m.layout.history.height+2):
+	case pointInElement(y, m.ui.elemPos[idHistory]-1, m.ui.elemHeight[idHistory]):
 		m.ui.hoveredID = idHistory
 	}
 }
@@ -243,6 +308,7 @@ func (m *model) updateHoverState(msg tea.MouseMsg) {
 func (m *model) clearHoverState() {
 	m.ui.hoveredID = ""
 	m.ui.hoveredTopic = -1
+	m.ui.hoveredResizeID = ""
 }
 
 func (m *model) clientViewportTop() int {

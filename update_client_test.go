@@ -140,7 +140,7 @@ func TestHandleTopicToggleSubscribeError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	m, _ := initialModel(nil)
 	m.mqttClient = &MQTTClient{Client: &failingClient{subErr: errors.New("sub boom")}}
-	m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true})
+	applyMQTTCommand(m, m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: true}))
 	items := m.history.Items()
 	if len(items) != 1 {
 		t.Fatalf("expected 1 history item, got %d", len(items))
@@ -155,7 +155,7 @@ func TestHandleTopicToggleUnsubscribeError(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	m, _ := initialModel(nil)
 	m.mqttClient = &MQTTClient{Client: &failingClient{unsubErr: errors.New("unsub boom")}}
-	m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: false})
+	applyMQTTCommand(m, m.handleTopicToggle(topics.ToggleMsg{Topic: "t1", Subscribed: false}))
 	items := m.history.Items()
 	if len(items) != 1 {
 		t.Fatalf("expected 1 history item, got %d", len(items))

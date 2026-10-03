@@ -24,17 +24,17 @@ func (m *model) SendStatus(msg string) { m.connections.SendStatus(msg) }
 func (m *model) FlushStatus()          { m.connections.FlushStatus() }
 
 func (m *model) RefreshConnectionItems() { m.connections.RefreshConnectionItems() }
-func (m *model) SubscribeActiveTopics() {
+func (m *model) SubscribeActiveTopics() tea.Cmd {
 	if m.mqttClient == nil {
-		return
+		return nil
 	}
+	var cmds []tea.Cmd
 	for _, t := range m.topics.Items {
 		if t.Subscribed {
-			if err := m.mqttClient.Subscribe(t.Name, 0, nil); err != nil {
-				m.connections.SendStatus(fmt.Sprintf("Subscribe error for %s: %v", t.Name, err))
-			}
+			cmds = append(cmds, m.queueSubscription(t.Name, true, false))
 		}
 	}
+	return tea.Batch(cmds...)
 }
 func (m *model) ConnectionMessage() string       { return m.connections.Connection }
 func (m *model) SetConnectionMessage(msg string) { m.connections.Connection = msg }
@@ -85,7 +85,7 @@ func (m *model) Connect(p connections.Profile) tea.Cmd {
 	m.RefreshConnectionItems()
 	return tea.Batch(connectBroker(p, m.connections.SendStatus), m.startAnimationTick())
 }
-func (m *model) HandleConnectResult(msg connections.ConnectResult) {
+func (m *model) HandleConnectResult(msg connections.ConnectResult) tea.Cmd {
 	m.ui.listeners.mqtt = false
 	profile := msg.Profile
 	brokerURL := fmt.Sprintf("%s://%s:%d", profile.Schema, profile.Host, profile.Port)
@@ -93,9 +93,10 @@ func (m *model) HandleConnectResult(msg connections.ConnectResult) {
 		m.connections.SetDisconnected(profile.Name, fmt.Sprintf("Failed to connect to %s: %v", brokerURL, err))
 		m.connections.Connection = fmt.Sprintf("Failed to connect to %s: %v", brokerURL, err)
 		m.RefreshConnectionItems()
-		return
+		return nil
 	}
 	m.mqttClient = msg.Client.(*MQTTClient)
+	m.mqttOps.publishError = ""
 	m.connections.Active = profile.Name
 	if st := m.history.Store(); st != nil {
 		st.Close()
@@ -122,12 +123,14 @@ func (m *model) HandleConnectResult(msg connections.ConnectResult) {
 	m.applySavedLayout(profile.Name)
 	m.topics.SortTopics()
 	m.topics.RebuildActiveTopicList()
-	m.SubscribeActiveTopics()
+	subscribe := m.SubscribeActiveTopics()
 	m.connections.Connection = "Connected to " + brokerURL
 	m.connections.SetConnected(profile.Name)
 	m.RefreshConnectionItems()
+	return subscribe
 }
 func (m *model) DisconnectActive() {
+	m.mqttOps.publishError = ""
 	if m.mqttClient != nil {
 		m.mqttClient.Disconnect()
 		m.connections.SetDisconnected(m.connections.Active, "")

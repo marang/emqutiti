@@ -9,6 +9,9 @@ import (
 
 // renderHistorySection renders the history list box.
 func (m *model) renderHistorySection() string {
+	if m.ui.height > 0 {
+		m.setPanelHeight(idHistory, m.layout.history.height)
+	}
 	histSP := m.animatedHistoryScrollPercent(m.rawHistoryScrollPercent())
 
 	total := len(m.history.Items())
@@ -16,9 +19,9 @@ func (m *model) renderHistorySection() string {
 		total = st.Count(m.history.ShowArchived())
 	}
 	shown := len(m.history.Items())
-	histLabel := fmt.Sprintf("History (%d messages \u2013 Ctrl+C copy)", total)
+	histLabel := fmt.Sprintf("History (%d messages \u2013 [Ctrl+C] copy)", total)
 	if m.history.FilterQuery() != "" && shown != total {
-		histLabel = fmt.Sprintf("History (%d/%d messages \u2013 Ctrl+C copy)", shown, total)
+		histLabel = fmt.Sprintf("History (%d/%d messages \u2013 [Ctrl+C] copy)", shown, total)
 	}
 	if marker := m.historyPulseMarker(); marker != " " {
 		histLabel = marker + " " + histLabel

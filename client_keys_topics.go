@@ -70,9 +70,17 @@ func (m *model) handleEnterKey() tea.Cmd {
 // handleDeleteTopicKey deletes the selected topic.
 func (m *model) handleDeleteTopicKey() tea.Cmd {
 	idx := m.topics.Selected()
+	if idx < 0 || idx >= len(m.topics.Items) {
+		return nil
+	}
 	name := m.topics.Items[idx].Name
-	rf := func() tea.Cmd { return m.SetFocus(m.ui.focusOrder[m.ui.focusIndex]) }
+	focused := m.FocusedID()
+	rf := func() tea.Cmd { return m.SetFocus(focused) }
 	m.StartConfirm(fmt.Sprintf("Delete topic '%s'? [y/n]", name), "", rf, func() tea.Cmd {
+		idx := m.topicIndexByName(name)
+		if idx < 0 {
+			return nil
+		}
 		cmd := m.topics.RemoveTopic(idx)
 		if m.CurrentMode() == constants.ModeTopics {
 			m.topics.RebuildActiveTopicList()

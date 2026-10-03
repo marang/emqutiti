@@ -1,6 +1,9 @@
 package emqutiti
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
+)
 
 // handleSpaceKey toggles selection in history.
 func (m *model) handleSpaceKey() tea.Cmd {
@@ -16,6 +19,11 @@ func (m *model) handleSpaceKey() tea.Cmd {
 			}
 			m.history.SetItems(hitems)
 			m.history.SetSelectionAnchor(idx)
+			items := make([]list.Item, len(hitems))
+			for i, item := range hitems {
+				items[i] = item
+			}
+			m.history.List().SetItems(items)
 		}
 	}
 	return nil

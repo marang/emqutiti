@@ -14,6 +14,32 @@ func (h *Component) Items() []Item { return h.items }
 // SetItems replaces the current history items.
 func (h *Component) SetItems(items []Item) { h.items = items }
 
+// PreserveSelection carries existing marks and the range anchor across a filter refresh.
+func (h *Component) PreserveSelection(items []Item) {
+	selected := make(map[Item]bool)
+	var anchor Item
+	hasAnchor := h.selectionAnchor >= 0 && h.selectionAnchor < len(h.items)
+	if hasAnchor {
+		anchor = selectionKey(h.items[h.selectionAnchor])
+	}
+	for _, item := range h.items {
+		if item.IsSelected != nil && *item.IsSelected {
+			selected[selectionKey(item)] = true
+		}
+	}
+	h.selectionAnchor = -1
+	for i := range items {
+		key := selectionKey(items[i])
+		if selected[key] {
+			v := true
+			items[i].IsSelected = &v
+		}
+		if hasAnchor && key == anchor {
+			h.selectionAnchor = i
+		}
+	}
+}
+
 // Store returns the underlying history store.
 func (h *Component) Store() Store { return h.store }
 
@@ -51,4 +77,7 @@ func (h *Component) SetFilterQuery(q string) { h.filterQuery = q }
 func (h *Component) SelectionAnchor() int { return h.selectionAnchor }
 
 // SetSelectionAnchor sets the selection anchor index.
-func (h *Component) SetSelectionAnchor(i int) { h.selectionAnchor = i }
+func (h *Component) SetSelectionAnchor(i int) {
+	h.selectionAnchor = i
+	h.captureSelectionBaseline()
+}

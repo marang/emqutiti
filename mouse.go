@@ -2,10 +2,8 @@ package emqutiti
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/marang/emqutiti/constants"
-	"github.com/marang/emqutiti/ui"
 )
 
 // isHistoryFocused reports if the history list has focus.
@@ -43,36 +41,20 @@ func (m *model) handleHelpClick(msg tea.MouseMsg) (tea.Cmd, bool) {
 	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 		return nil, false
 	}
-	helpWidth := lipgloss.Width(ui.HelpStyle.Render("?"))
-	helpY := 0
-	if m.ui.width < helpReflowWidth {
-		helpY = 1
-	}
-	if msg.Y == helpY && msg.X >= m.ui.width-helpWidth {
+	if m.pointOverHelp(msg) {
 		return m.SetMode(constants.ModeHelp), true
 	}
 	return nil, false
 }
 
 // handleMouseLeft manages left-click focus and selection.
-func (m *model) handleMouseLeft(msg tea.MouseMsg) tea.Cmd {
+func (m *model) handleMouseLeft(msg, contentMsg tea.MouseMsg) tea.Cmd {
 	if cmd, handled := m.handleHelpClick(msg); handled {
 		return cmd
 	}
 	cmd := m.focusFromMouse(msg.Y)
 	if m.isHistoryFocused() && !m.history.ShowArchived() {
-		contentMsg := m.clientContentMouseMsg(msg)
 		m.history.HandleClick(contentMsg, m.ui.elemPos[idHistory], 0)
-	}
-	helpWidth := lipgloss.Width(ui.HelpStyle.Render("?"))
-	helpY := 0
-	xOffset := 0
-	if m.ui.width < helpReflowWidth {
-		helpY = 1
-		xOffset = 1
-	}
-	if msg.Y == helpY && msg.X >= m.ui.width-helpWidth+xOffset {
-		m.SetMode(constants.ModeHelp)
 	}
 	return cmd
 }
@@ -101,13 +83,13 @@ func (m *model) handleClientMouse(msg tea.MouseMsg) tea.Cmd {
 		return nil
 	}
 	var cmds []tea.Cmd
+	contentMsg := m.clientContentMouseMsg(msg)
 	if msg.Type == tea.MouseLeft {
-		if cmd := m.handleMouseLeft(msg); cmd != nil {
+		if cmd := m.handleMouseLeft(msg, contentMsg); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 	}
 	if msg.Type == tea.MouseLeft || msg.Type == tea.MouseRight {
-		contentMsg := m.clientContentMouseMsg(msg)
 		if cmd := m.topics.HandleClick(contentMsg, 0); cmd != nil {
 			cmds = append(cmds, cmd)
 		}

@@ -28,7 +28,7 @@ type API interface {
 	SendStatus(string)
 	FlushStatus()
 	RefreshConnectionItems()
-	SubscribeActiveTopics()
+	SubscribeActiveTopics() tea.Cmd
 	ConnectionMessage() string
 	SetConnectionMessage(string)
 	Active() string
@@ -36,7 +36,7 @@ type API interface {
 	BeginEdit(index int)
 	BeginDelete(index int)
 	Connect(p Profile) tea.Cmd
-	HandleConnectResult(msg ConnectResult)
+	HandleConnectResult(msg ConnectResult) tea.Cmd
 	DisconnectActive()
 	ResizeTraces(width, height int)
 	ResetElemPos()

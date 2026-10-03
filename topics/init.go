@@ -10,11 +10,11 @@ import (
 
 func initTopics() state {
 	ti := textinput.New()
-	ti.Placeholder = "Enter Topic"
+	ti.Placeholder = "Enter new Topic"
 	ti.CharLimit = 128
 	ti.Prompt = "> "
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(ui.ColGray)
-	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(ui.ColGray)
+	ti.PromptStyle = lipgloss.NewStyle().Foreground(ui.TextMuted)
+	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(ui.TextMuted)
 	ti.Cursor.Style = ui.CursorStyle
 	ti.TextStyle = ui.FocusedStyle
 	ti.Width = 40

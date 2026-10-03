@@ -336,7 +336,11 @@ func runUI(d *appDeps) error {
 	stop := startProxyStatusLogger(d.proxyAddr)
 	defer stop()
 	_ = initial.SetMode(constants.ModeConnections)
-	p := d.newProgram(initial, tea.WithMouseAllMotion(), tea.WithAltScreen())
+	inputOptions, closeInput := ctrlEnterInputOptions()
+	defer closeInput()
+	initial.ui.modifiedKeyInput = len(inputOptions) > 0
+	options := append([]tea.ProgramOption{tea.WithMouseAllMotion(), tea.WithAltScreen()}, inputOptions...)
+	p := d.newProgram(initial, options...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return err

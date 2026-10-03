@@ -6,6 +6,7 @@ import (
 	"unicode"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // BoxState describes the interaction state used to render a LegendBox.
@@ -33,9 +34,8 @@ func LegendBoxWithState(content, label string, width, height int, border lipglos
 
 func legendStyledBox(content, label string, width, height int, color lipgloss.Color, scroll float64) string {
 	content = strings.TrimRight(content, "\n")
-	if width < lipgloss.Width(label)+4 {
-		width = lipgloss.Width(label) + 4
-	}
+	width = max(4, width)
+	label = ansi.Truncate(label, width-4, "...")
 
 	b := lipgloss.RoundedBorder()
 	cy := ColCyan
@@ -72,7 +72,7 @@ func legendStyledBox(content, label string, width, height int, color lipgloss.Co
 		if len(l) > len(trimmed) {
 			trimmed += " "
 		}
-		l = trimmed
+		l = ansi.Truncate(trimmed, width-2, "")
 		side := color
 		if i == len(lines)-1 && height > 1 {
 			side = cy

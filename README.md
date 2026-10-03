@@ -42,6 +42,52 @@ emqutiti
 
 If a profile is marked as default, the app connects to it automatically on start.
 
+### Interactive workflow
+
+- In the topic input, `Enter` adds and subscribes to a new topic. On a
+  topic chip, `Enter` toggles subscription, `p` toggles the publish target,
+  and `Delete` opens a removal confirmation. Typing in inputs or list
+  filters does not run chip commands.
+- With the message editor focused, `Ctrl+S` publishes and `Ctrl+E` publishes
+  retained. Explicit publish targets take priority; otherwise the selected
+  topic is used. MQTT work runs asynchronously, keeping the UI responsive.
+- Pending publishes show their original targets and suppress repeat sends
+  until the current batch finishes. Each request keeps its payload, target,
+  retain flag and broker/client snapshot; the draft remains editable and is
+  not cleared on completion. Results from an old connection are ignored.
+- History entries, saved payloads and success pulses follow successful MQTT
+  API results per target. Failures appear in history and the message context;
+  successful targets in a partially failed batch are still recorded.
+  **QoS 0 API success does not confirm subscriber delivery.**
+- Payload `Delete` and right-click require confirmation for the chosen
+  entry, even if the list changes while the dialog is open. Left-click loads
+  the clicked row; clicks outside rows do nothing.
+- Broker forms, history filters, full message details and long confirmation
+  content scroll within the terminal. The global shortcut header stays one
+  row at every width; client context help stays two rows above the content.
+  Compact hints mark keyboard shortcuts with square brackets, for example
+  `[Enter]`, `[p]` and `[Ctrl+S]`.
+
+Subscribed chip names have a cyan underline on capable ANSI terminals.
+Completely pink-filled chips with
+dark text are the actual publish targets, including the selected topic when no
+targets are marked with `p`. A pink outline indicates the selected chip;
+neutral borders carry no subscription state. The Message title distinguishes
+`publish to (selected)` from `publish to (marked)`. The Topics legend uses the
+same subscription/publish cues, which remain visible during border
+pulses. Subscription results and list refreshes preserve the selected chip
+and its publish fallback. History dates and input hints use adaptive medium gray;
+log text and shortcut hints retain higher contrast on light and dark backgrounds.
+The heading `Topics: N | subscribed: S` shows the total topic count and the
+subscription count, not the selection position or number of publish targets.
+Without color, suffixes show `[sub]`, `[pub]`, `[sub,pub]` or `[off]`.
+See [the in-app help guide](help/help.md) for form and scrolling shortcuts.
+
+Drag the bottom border of Topics, Message or History to resize its height.
+Release applies the change; `Esc` cancels the drag. `Ctrl+Shift+Up/Down` resizes
+the focused panel and `Ctrl+R` resets it. Heights are bounded by the terminal;
+switching views preserves them. Switching views during a drag cancels it.
+
 ### Importing from CSV
 
 Launch `emqutiti -i data.csv -p local` (or `--import data.csv --profile local`) to map columns to JSON and publish them. The wizard supports dry runs and will remember settings in future versions.
@@ -81,7 +127,7 @@ emqutiti --trace myrun --topics "sensors/#" -p local --start "2025-08-05T11:47:0
 ```
 
 Traces are stored under `~/.config/emqutiti/data/<profile>/traces` and can
-be viewed in the application (run `emqutiti` and press `CTRL+R` in the app
+be viewed in the application (run `emqutiti` and press `Alt+R` in the app
 to view traces).
 
 ## Configuration
@@ -128,11 +174,12 @@ Tips:
 | Manage traces | `Alt+R` |
 | Open broker manager | `Ctrl+B` |
 | Disconnect from broker after confirmation and offer to reconnect immediately or return to the broker manager | `Ctrl+X` |
-| Publish message | `Ctrl+S` |
-| Publish retained message | `Ctrl+E` |
+| Publish message (message editor focused) | `Ctrl+S`; `Ctrl+Enter` on supported Linux terminals |
+| Publish retained message (message editor focused) | `Ctrl+E` |
 | Open log viewer | `Ctrl+L` |
 | Resize panels | `Ctrl+Shift+Up` / `Ctrl+Shift+Down` |
-| Scroll view | `Up`/`Down` or `j`/`k` |
+| Reset focused client panel height | `Ctrl+R` |
+| Scroll current view | `Ctrl+Up`/`Ctrl+Down` or `Ctrl+K`/`Ctrl+J` |
 
 #### Navigation
 
@@ -140,19 +187,22 @@ Tips:
 | --- | --- |
 | Back | `Esc` |
 | Cycle focus | `Tab` / `Shift+Tab` |
-| Scroll view | `Up`/`Down` or `j`/`k` |
+| Scroll focused list | `Up`/`Down` or `j`/`k` (outside text entry) |
 | Switch pane | `Left` / `Right` |
 
 #### Broker Manager
 
-- `Ctrl+X` disconnects the selected profile
+- `Ctrl+X` disconnects the active broker
 - `Ctrl+O` toggles the default profile
+- In broker forms, `Tab` / `Shift+Tab` reveals the focused field;
+  `Ctrl+Up` / `Ctrl+Down` or the mouse wheel scrolls. `Enter` saves and
+  `Esc` cancels; their footer remains visible.
 
 #### History View
 
 | Key | Action |
 | --- | ------ |
-| Space | Toggle selection |
+| Space / Shift+Space | Toggle current selection without clearing other marks |
 | Shift+Up / Shift+Down | Extend selection |
 | Ctrl+A | Select all |
 | Ctrl+C | Copy selected history entries |
@@ -162,7 +212,27 @@ Tips:
 | Ctrl+F | Clear all history filters |
 | Enter | View full message |
 
+With History focused, `Shift+Up` / `Shift+Down` selects a range of entries;
+`Shift+Click` adds a mouse range without clearing existing marks. `Space` /
+`Shift+Space` toggles just the current entry. `Ctrl+C` copies selected
+entries, or the current entry when nothing is selected. MQTT entries include
+the topic and full payload; multiple entries are separated by newlines.
+Range selection is unavailable in archived history.
+
+`Ctrl+Enter` publishes without retaining, only in the focused Message editor.
+It currently requires Linux TTY input and a terminal that sends a distinct
+modified-key sequence (`CSI 13;5u` or `CSI 27;5;13~`). Ordinary `Enter` remains
+a newline, including on terminals that cannot distinguish `Ctrl+Enter`.
+`Ctrl+S` remains the portable publish shortcut. Emqutiti does not enable a new
+keyboard protocol or change your terminal configuration. See
+[terminal shortcut compatibility](help/help.md#terminal-shortcut-compatibility).
+
 Retained messages are labeled "(retained)".
+In history filters, `Tab` / `Shift+Tab` moves between fields, `PgUp` /
+`PgDown` or the mouse wheel scrolls, `Enter` applies and `Esc` cancels.
+Full details wrap the complete payload for scrolling; `Ctrl+C` copies it
+and `Esc` returns. Long confirmations scroll while `y` / `n` stays visible;
+`Esc` also cancels.
 
 ## License
 
@@ -170,8 +240,10 @@ This project is licensed under the terms of the MIT License. See [LICENSE](LICEN
 
 ## Testing
 
-Unit tests run quickly offline with `go test ./...`; network calls are
-stubbed (the TLS client tests spin up a temporary loopback server).
+Run tests with `make test` (vet and `go test ./...`). External services are
+stubbed; integration tests use isolated loopback MQTT, proxy and TLS servers.
+Linux terminal-input tests also use local pseudo-terminals. Run
+`go test -race ./...` to check concurrent code.
 
 The example `ExampleSet_manual` in `keyring_util_test.go` touches the real
 system keyring and is skipped by default. Run it only when a keyring is
@@ -192,18 +264,33 @@ Additional notes for repository contributors are available in [AGENTS.md](AGENTS
 
 ### Building
 
-`make build` compiles the `emqutiti` binary using:
+Build and start the local binary:
 
 ```bash
-go build -trimpath -ldflags="-s -w" -o emqutiti ./cmd/emqutiti
+make build
+./dist/emqutiti
 ```
+
+The build embeds the current Git tag/commit and marks uncommitted changes dirty.
 
 ### Common tasks
 
-- `make build` – compile the `emqutiti` binary
+- `make build` – compile `dist/emqutiti`
 - `make test` – run `go vet` and unit tests
 - `make proto` – regenerate gRPC code from `proxy/proxy.proto`
 - `make tape` – record demos from `.tape` scripts
+
+### Dependency updates
+
+Dependabot checks Go modules (including indirect dependencies) and GitHub
+Actions every Monday at 06:00 Europe/Vienna. Minor and patch updates are
+grouped per ecosystem; major updates get separate pull requests.
+Configuration lives in `.github/dependabot.yml` and becomes active once it
+is on the default branch.
+
+The test workflow runs `make test` on pull requests and pushes to `main`,
+including Dependabot pull requests. Updates still require review and merge;
+application version tags and releases remain manual.
 
 ### Creating documentation
 
@@ -234,6 +321,8 @@ Actions runs both release pipelines:
 The GoReleaser configuration lives in `.goreleaser.yaml`. For the Codex-ready
 guide that introduced this setup (including an optional Flatpak artifact job),
 see `docs/howto-codex-goreleaser.md`.
+Release builds inject the tag version into `github.com/marang/emqutiti/cmd.version`
+so `--version` reports the published version rather than `dev`.
 
 #### Steps to release
 

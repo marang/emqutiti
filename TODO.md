@@ -5,6 +5,20 @@ This file tracks planned improvements for Emqutiti.
 ## UI
 - [x] Split view logic into multiple files for easier maintenance
 - [x] Responsive layout via `tea.WindowSizeMsg` and `lipgloss`
+- [x] LAB-226: asynchronous MQTT results, pending/error feedback and draft snapshots
+- [x] LAB-226: stable confirmed payload deletion and rendered-row mouse targets
+- [x] LAB-226: scrollable broker/filter/detail/confirmation views and corrected sizing
+- [x] LAB-226: separate input/chip context actions and a one-row global header
+- [x] Compare and validate ANSI underline/no-color suffix chips without geometry changes
+- [x] Match the Topics legend to state styling and explain subscription counts
+- [x] Mark client shortcut hints with square brackets and keep narrow layouts readable
+- [x] Explain History Shift range selection and selected/current-entry copying in context help
+- [x] Preserve chip selection across MQTT results
+- [x] Use complete pink publish fill, pink selection borders, cyan subscribe underlines and selected/marked titles
+- [x] Use readable medium-gray dates/input hints and high-contrast History text/help
+- [x] LAB-232: drag client panel bottom borders, shared height bounds and keyboard reset
+- [x] LAB-233: distinct Linux terminal Ctrl+Enter publish input with portable Ctrl+S fallback
+- [x] Preserve additive History mouse/Space selection and marks during filter refreshes
 - [ ] Refine vertical stacking on very narrow terminals
 
 ## Connection Management
@@ -17,7 +31,16 @@ This file tracks planned improvements for Emqutiti.
 - [ ] Persist import wizard settings for reuse
 
 ## Testing
+- [x] Run vet and unit tests in CI for pull requests and pushes to main
 - [ ] Verify layout across a wide range of terminal sizes
+- [x] Complete LAB-226 review, visual checks and full validation; track status in
+      [.plan/lab-226-implementation.md](.plan/lab-226-implementation.md)
+- [x] Complete integrated LAB-232/LAB-233 review and terminal-input validation;
+      track release gates in
+      [.plan/lab-232-233-release.md](.plan/lab-232-233-release.md)
+
+## Maintenance
+- [x] Automate Go module and GitHub Actions update pull requests with Dependabot
 
 ## Packaging
 - [x] Provide a `PKGBUILD` for Arch Linux

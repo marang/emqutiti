@@ -1,6 +1,10 @@
 package emqutiti
 
-import tea "github.com/charmbracelet/bubbletea"
+import (
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/marang/emqutiti/constants"
+	"github.com/marang/emqutiti/ui"
+)
 
 // SetFocus moves focus to the given element id.
 func (m *model) SetFocus(id string) tea.Cmd {
@@ -37,7 +41,7 @@ func (m *model) focusFromMouse(y int) tea.Cmd {
 
 // ScrollToFocused ensures the focused element is visible in the viewport.
 func (m *model) ScrollToFocused() {
-	if len(m.ui.focusOrder) == 0 {
+	if len(m.ui.focusOrder) == 0 || m.CurrentMode() != constants.ModeClient {
 		return
 	}
 	id := m.ui.focusOrder[m.ui.focusIndex]
@@ -45,13 +49,42 @@ func (m *model) ScrollToFocused() {
 	if !ok {
 		return
 	}
-	offset := pos - 1
-	if offset < 0 {
-		offset = 0
+	if id == idHelp {
+		return
 	}
-	if offset < m.ui.viewport.YOffset {
-		m.ui.viewport.SetYOffset(offset)
-	} else if offset >= m.ui.viewport.YOffset+m.ui.viewport.Height {
-		m.ui.viewport.SetYOffset(offset - m.ui.viewport.Height + 1)
+	top := max(0, pos-1)
+	height := max(1, m.ui.elemHeight[id])
+	available := max(1, m.ui.viewport.Height)
+	end := top + min(height, available)
+	if height > available {
+		switch id {
+		case idHistory:
+			l := m.history.List()
+			if y, rowHeight, visible := ui.ListItemBounds(*l, l.Index(), 2, 0); visible {
+				row := top + 1 + y
+				if m.history.FilterQuery() != "" {
+					row++
+				}
+				end = row + rowHeight
+				if end-top > available {
+					top = row
+				}
+			}
+		case idTopics:
+			for _, b := range m.topics.ChipBounds {
+				if b.Index == m.topics.Selected() {
+					end = b.YPos + min(b.Height, available)
+					if end-top > available {
+						top = b.YPos
+					}
+					break
+				}
+			}
+		}
+	}
+	if top < m.ui.viewport.YOffset {
+		m.ui.viewport.SetYOffset(top)
+	} else if end > m.ui.viewport.YOffset+available {
+		m.ui.viewport.SetYOffset(end - available)
 	}
 }

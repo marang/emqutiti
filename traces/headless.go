@@ -135,19 +135,70 @@ func Run(ctx context.Context, key, topics, profileName, startStr, endStr string)
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt)
 	defer signal.Stop(sig)
-	for tr.Planned() || tr.Running() {
+	var reportErr error
+	var contextErr error
+	recordReport := func(err error) {
+		if err == nil {
+			return
+		}
+		log.Printf("trace '%s': %v", key, err)
+		if reportErr == nil {
+			reportErr = fmt.Errorf("trace '%s': %w", key, err)
+		}
+	}
+	var endCh <-chan time.Time
+	if !end.IsZero() {
+		timer := time.NewTimer(time.Until(end))
+		defer timer.Stop()
+		endCh = timer.C
+	}
+	// Running is false until SUBACKs arrive; only completion or an explicit
+	// stop condition may end startup, including an already-expired window.
+wait:
+	for {
 		select {
+		case err := <-tr.report:
+			recordReport(err)
+		case <-tr.done:
+			break wait
+		case <-endCh:
+			break wait
 		case <-sig:
-			tr.Stop()
+			break wait
 		case <-ctx.Done():
-			tr.Stop()
-			return ctx.Err()
-		case <-time.After(500 * time.Millisecond):
+			contextErr = ctx.Err()
+			break wait
+		}
+	}
+
+	// Stop cannot cancel a pending MQTT token wait. Give normal teardown a
+	// short grace period, then disconnect to release SUBACK waits before joining.
+	stopped := make(chan struct{})
+	go func() {
+		tr.Stop()
+		close(stopped)
+	}()
+	select {
+	case <-tr.done:
+	case <-time.After(250 * time.Millisecond):
+		client.Disconnect()
+		<-tr.done
+	}
+	<-stopped
+	for draining := true; draining; {
+		select {
+		case err := <-tr.report:
+			recordReport(err)
+		default:
+			draining = false
 		}
 	}
 
 	for t, c := range tr.Counts() {
 		log.Printf("%s: %d", t, c)
 	}
-	return nil
+	if contextErr != nil {
+		return contextErr
+	}
+	return reportErr
 }

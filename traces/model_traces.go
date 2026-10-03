@@ -12,12 +12,15 @@ import (
 )
 
 // forceStartTrace launches the tracer at index without checking existing data.
-func (t *Component) forceStartTrace(index int) {
+func (t *Component) forceStartTrace(index int) tea.Cmd {
+	if index < 0 || index >= len(t.items) {
+		return nil
+	}
 	item := t.items[index]
 	p, err := connections.LoadProfile(item.cfg.Profile, "")
 	if err != nil {
 		t.api.LogHistory("", err.Error(), "log", false, err.Error())
-		return
+		return nil
 	}
 	if p.FromEnv {
 		connections.ApplyEnvVars(p)
@@ -26,41 +29,49 @@ func (t *Component) forceStartTrace(index int) {
 	client, err := t.api.NewClient(*p)
 	if err != nil {
 		t.api.LogHistory("", err.Error(), "log", false, err.Error())
-		return
+		return nil
 	}
 	tr := newTracer(item.cfg, client)
 	if err := tr.Start(); err != nil {
 		t.api.LogHistory("", err.Error(), "log", false, err.Error())
 		client.Disconnect()
-		return
+		return nil
 	}
 	item.tracer = tr
-	if err := addTrace(item.cfg); err != nil {
+	if err := t.store.AddTrace(item.cfg); err != nil {
 		t.api.LogHistory("", err.Error(), "log", false, err.Error())
 	}
+	return listenTraceReports(item.key, tr)
 }
 
 // startTrace starts the tracer at index, prompting if data already exists.
-func (t *Component) startTrace(index int) {
+func (t *Component) startTrace(index int) tea.Cmd {
 	if index < 0 || index >= len(t.items) {
-		return
+		return nil
 	}
 	item := t.items[index]
 	if !item.cfg.End.IsZero() && time.Now().After(item.cfg.End) {
 		t.api.LogHistory("", fmt.Sprintf("trace '%s' already finished", item.key), "log", false, fmt.Sprintf("trace '%s' already finished", item.key))
-		return
+		return nil
 	}
-	exists, err := tracerHasData(item.cfg.Profile, item.key)
+	exists, err := t.store.HasData(item.cfg.Profile, item.key)
 	if err == nil && exists {
-		rf := func() tea.Cmd { return t.api.SetFocus(t.api.FocusedID()) }
+		focused := t.api.FocusedID()
+		rf := func() tea.Cmd { return t.api.SetFocus(focused) }
 		t.api.StartConfirm(fmt.Sprintf("Overwrite trace '%s'? [y/n]", item.key), "existing trace data will be removed", rf, func() tea.Cmd {
-			tracerClearData(item.cfg.Profile, item.key)
-			t.forceStartTrace(index)
-			return nil
+			index := t.traceIndex(item.key)
+			if index < 0 || t.items[index] != item {
+				return nil
+			}
+			if err := t.store.ClearData(item.cfg.Profile, item.key); err != nil {
+				t.api.LogHistory("", err.Error(), "log", false, err.Error())
+				return nil
+			}
+			return t.forceStartTrace(index)
 		}, nil)
-		return
+		return nil
 	}
-	t.forceStartTrace(index)
+	return t.forceStartTrace(index)
 }
 
 // stopTrace stops a running tracer at the given index.

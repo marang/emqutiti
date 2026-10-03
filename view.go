@@ -9,45 +9,6 @@ import (
 	"github.com/marang/emqutiti/ui"
 )
 
-const helpReflowWidth = 60
-
-func (m *model) availableInfoWidth(helpWidth, pad int, stacked bool) int {
-	available := m.ui.width - pad
-	if !stacked {
-		available -= helpWidth
-	}
-	if available < 0 {
-		available = 0
-	}
-	return available
-}
-
-func (m *model) renderFirstLine(info, help string, available, pad int, stacked bool) string {
-	if stacked {
-		return lipgloss.NewStyle().Width(available + pad).Render(ui.InfoStyle.Render(info))
-	}
-	return lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Width(available+pad).Render(ui.InfoStyle.Render(info)), help)
-}
-
-func (m *model) renderSecondLine(lines []string, help string, stacked bool) []string {
-	if !stacked {
-		return lines
-	}
-	if len(lines) > 1 {
-		secondAvail := m.ui.width - lipgloss.Width(help)
-		if secondAvail < 0 {
-			secondAvail = 0
-		}
-		second := lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().Width(secondAvail).Render(lines[1]), help)
-		lines[1] = second
-	} else {
-		lines = append(lines, help)
-	}
-	return lines
-}
-
 func (m *model) overlayHelp(view string) string {
 	help := ui.HelpStyle.Render("?")
 	if m.help.Focused() {
@@ -57,7 +18,7 @@ func (m *model) overlayHelp(view string) string {
 	}
 	m.ui.elemPos[idHelp] = 0
 
-	info := "Switch views: Ctrl+B brokers, Ctrl+T topics, Ctrl+P payloads, Alt+R traces, Ctrl+L logs, Ctrl+D quit."
+	actions := []string{"[Ctrl+B] brokers", "[Ctrl+D] quit", "[Ctrl+T] topics", "[Ctrl+P] payloads", "[Alt+R] traces", "[Ctrl+L] logs"}
 	pad := lipgloss.Width(ui.InfoStyle.Render(""))
 
 	lines := []string{}
@@ -66,13 +27,26 @@ func (m *model) overlayHelp(view string) string {
 	}
 	lines = append([]string{""}, lines...)
 
-	stacked := m.ui.width < helpReflowWidth
-	available := m.availableInfoWidth(lipgloss.Width(help), pad, stacked)
+	available := max(0, m.ui.width-pad-lipgloss.Width(help))
+	info := ""
+	if available >= 105 {
+		info = "Switch views:"
+	}
+	for _, action := range actions {
+		candidate := action
+		if info != "" {
+			candidate = info + "  " + action
+		}
+		if runewidth.StringWidth(candidate) > available {
+			break
+		}
+		info = candidate
+	}
 	if runewidth.StringWidth(info) > available {
 		info = runewidth.Truncate(info, available, "")
 	}
-	lines[0] = m.renderFirstLine(info, help, available, pad, stacked)
-	lines = m.renderSecondLine(lines, help, stacked)
+	lines[0] = lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().Width(available+pad).Render(ui.InfoStyle.Render(info)), help)
 
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }

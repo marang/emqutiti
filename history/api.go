@@ -51,6 +51,14 @@ func NewComponent(m Model, st Store) *Component {
 	lst.SetShowStatusBar(false)
 	lst.SetShowPagination(false)
 	lst.DisableQuitKeybindings()
+	lst.Help.Styles.ShortKey = lst.Help.Styles.ShortKey.Foreground(ui.TextMain)
+	lst.Help.Styles.ShortDesc = lst.Help.Styles.ShortDesc.Foreground(ui.TextMain)
+	lst.Help.Styles.ShortSeparator = lst.Help.Styles.ShortSeparator.Foreground(ui.TextMuted)
+	lst.Help.Styles.FullKey = lst.Help.Styles.FullKey.Foreground(ui.TextMain)
+	lst.Help.Styles.FullDesc = lst.Help.Styles.FullDesc.Foreground(ui.TextMain)
+	lst.Help.Styles.FullSeparator = lst.Help.Styles.FullSeparator.Foreground(ui.TextMuted)
+	lst.Help.Styles.Ellipsis = lst.Help.Styles.Ellipsis.Foreground(ui.TextMuted)
+	lst.Styles.NoItems = lst.Styles.NoItems.Foreground(ui.TextMain)
 	hs := historyState{
 		list:            lst,
 		items:           []Item{},

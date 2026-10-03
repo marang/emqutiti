@@ -36,9 +36,11 @@ func initMessage() message.State {
 	ta.SetPromptFunc(0, func(i int) string {
 		return fmt.Sprintf("%d> ", i+1)
 	})
-	promptColor := ui.ColGray
+	promptColor := ui.TextMuted
 	ta.FocusedStyle.Prompt = lipgloss.NewStyle().Foreground(promptColor)
 	ta.BlurredStyle.Prompt = lipgloss.NewStyle().Foreground(promptColor)
+	ta.FocusedStyle.Placeholder = lipgloss.NewStyle().Foreground(ui.TextMuted)
+	ta.BlurredStyle.Placeholder = lipgloss.NewStyle().Foreground(ui.TextMuted)
 	ta.Blur()
 	ta.Cursor.Style = ui.NoCursor
 	ta.SetWidth(0)
@@ -129,6 +131,7 @@ func (m *model) applySavedLayout(profile string) {
 		return
 	}
 	applySnapshotHeights(&m.layout, snap)
+	m.clampPanelHeights()
 	if m.message != nil {
 		m.message.Input().SetHeight(m.layout.message.height)
 	}

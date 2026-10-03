@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/marang/emqutiti/topics"
 	"github.com/marang/emqutiti/ui"
 )
@@ -21,6 +22,10 @@ func (m *model) clientInfoLine() string {
 		clientID = r.ClientID()
 	}
 	status := strings.TrimSpace(m.connections.Connection + " " + clientID)
+	if status == "" {
+		status = "Disconnected"
+	}
+	status = ansi.Truncate(strings.ReplaceAll(status, "\n", " "), max(1, m.ui.width-2), "...")
 	st := ui.InfoSubtleStyle
 	if m.isConnected() {
 		st = st.Foreground(ui.ColGreen)
@@ -40,6 +45,7 @@ func (m *model) clientInfoLine() string {
 // viewClient renders the main client view.
 func (m *model) viewClient() string {
 	m.ui.elemPos = map[string]int{}
+	m.ui.elemHeight = map[string]int{}
 	statusLine := m.clientInfoLine()
 	var parts []string
 	y := 1
@@ -48,8 +54,10 @@ func (m *model) viewClient() string {
 	parts = append(parts, topicBox, topicsBox)
 
 	m.ui.elemPos[idTopic] = y
+	m.ui.elemHeight[idTopic] = lipgloss.Height(topicBox)
 	y += lipgloss.Height(topicBox)
 	m.ui.elemPos[idTopics] = y
+	m.ui.elemHeight[idTopics] = lipgloss.Height(topicsBox)
 	y += lipgloss.Height(topicsBox)
 
 	m.topics.ChipBounds = make([]topics.ChipBound, len(bounds))
@@ -72,11 +80,13 @@ func (m *model) viewClient() string {
 	messageBox := m.message.View()
 	parts = append(parts, messageBox)
 	m.ui.elemPos[idMessage] = y
+	m.ui.elemHeight[idMessage] = lipgloss.Height(messageBox)
 	y += lipgloss.Height(messageBox)
 
 	messagesBox := m.renderHistorySection()
 	parts = append(parts, messagesBox)
 	m.ui.elemPos[idHistory] = y
+	m.ui.elemHeight[idHistory] = lipgloss.Height(messagesBox)
 
 	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 

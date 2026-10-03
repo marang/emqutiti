@@ -18,28 +18,28 @@ type testAPI struct {
 	mgr   *Connections
 }
 
-func (t *testAPI) Manager() *Connections             { return t.mgr }
-func (t *testAPI) ListenStatus() tea.Cmd             { return nil }
-func (t *testAPI) SendStatus(string)                 {}
-func (t *testAPI) FlushStatus()                      {}
-func (t *testAPI) RefreshConnectionItems()           {}
-func (t *testAPI) SubscribeActiveTopics()            {}
-func (t *testAPI) ConnectionMessage() string         { return "" }
-func (t *testAPI) SetConnectionMessage(string)       {}
-func (t *testAPI) Active() string                    { return "" }
-func (t *testAPI) BeginAdd()                         { t.began = true }
-func (t *testAPI) BeginEdit(int)                     {}
-func (t *testAPI) BeginDelete(int)                   {}
-func (t *testAPI) Connect(Profile) tea.Cmd           { return nil }
-func (t *testAPI) HandleConnectResult(ConnectResult) {}
-func (t *testAPI) DisconnectActive()                 {}
-func (t *testAPI) ResizeTraces(int, int)             {}
-func (t *testAPI) ResetElemPos()                     {}
-func (t *testAPI) SetElemPos(string, int)            {}
-func (t *testAPI) OverlayHelp(view string) string    { return view }
-func (t *testAPI) SetConnecting(string)              {}
-func (t *testAPI) SetConnected(string)               {}
-func (t *testAPI) SetDisconnected(string, string)    {}
+func (t *testAPI) Manager() *Connections                     { return t.mgr }
+func (t *testAPI) ListenStatus() tea.Cmd                     { return nil }
+func (t *testAPI) SendStatus(string)                         {}
+func (t *testAPI) FlushStatus()                              {}
+func (t *testAPI) RefreshConnectionItems()                   {}
+func (t *testAPI) SubscribeActiveTopics() tea.Cmd            { return nil }
+func (t *testAPI) ConnectionMessage() string                 { return "" }
+func (t *testAPI) SetConnectionMessage(string)               {}
+func (t *testAPI) Active() string                            { return "" }
+func (t *testAPI) BeginAdd()                                 { t.began = true }
+func (t *testAPI) BeginEdit(int)                             {}
+func (t *testAPI) BeginDelete(int)                           {}
+func (t *testAPI) Connect(Profile) tea.Cmd                   { return nil }
+func (t *testAPI) HandleConnectResult(ConnectResult) tea.Cmd { return nil }
+func (t *testAPI) DisconnectActive()                         {}
+func (t *testAPI) ResizeTraces(int, int)                     {}
+func (t *testAPI) ResetElemPos()                             {}
+func (t *testAPI) SetElemPos(string, int)                    {}
+func (t *testAPI) OverlayHelp(view string) string            { return view }
+func (t *testAPI) SetConnecting(string)                      {}
+func (t *testAPI) SetConnected(string)                       {}
+func (t *testAPI) SetDisconnected(string, string)            {}
 
 func TestAddKeyTriggersBeginAdd(t *testing.T) {
 	mgr := NewConnectionsModel()

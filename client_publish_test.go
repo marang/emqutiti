@@ -10,6 +10,7 @@ import (
 
 func TestHandlePublishKeyFlags(t *testing.T) {
 	m, _ := initialModel(nil)
+	m.mqttClient = &MQTTClient{Client: &mockClient{}}
 	m.topics.Items = []topics.Item{
 		{Name: "a", Publish: true},
 		{Name: "b"},
@@ -17,7 +18,7 @@ func TestHandlePublishKeyFlags(t *testing.T) {
 	}
 	m.message.SetPayload("hello")
 	m.SetFocus(idMessage)
-	m.handlePublishKey()
+	applyMQTTCommand(m, m.handlePublishKey())
 	items := m.payloads.Items()
 	if len(items) != 2 {
 		t.Fatalf("expected 2 payloads, got %d", len(items))
@@ -29,6 +30,7 @@ func TestHandlePublishKeyFlags(t *testing.T) {
 
 func TestHandlePublishKeyFallback(t *testing.T) {
 	m, _ := initialModel(nil)
+	m.mqttClient = &MQTTClient{Client: &mockClient{}}
 	m.topics.Items = []topics.Item{
 		{Name: "a"},
 		{Name: "b"},
@@ -36,7 +38,7 @@ func TestHandlePublishKeyFallback(t *testing.T) {
 	m.topics.SetSelected(1)
 	m.message.SetPayload("hi")
 	m.SetFocus(idMessage)
-	m.handlePublishKey()
+	applyMQTTCommand(m, m.handlePublishKey())
 	items := m.payloads.Items()
 	if len(items) != 1 {
 		t.Fatalf("expected 1 payload, got %d", len(items))
@@ -79,7 +81,7 @@ func TestHandlePublishRetainKey(t *testing.T) {
 	m.topics.SetSelected(0)
 	m.message.SetPayload("hi")
 	m.SetFocus(idMessage)
-	m.handlePublishRetainKey()
+	applyMQTTCommand(m, m.handlePublishRetainKey())
 	if !fc.retained {
 		t.Fatalf("expected retained publish")
 	}

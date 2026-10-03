@@ -2,6 +2,7 @@ package payloads
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/marang/emqutiti/confirm"
 	connections "github.com/marang/emqutiti/connections"
 )
 
@@ -33,12 +34,15 @@ type API interface {
 
 // Model defines the dependencies the component requires from the host model.
 type Model interface {
+	confirm.API
 	SetClientMode() tea.Cmd
+	SetFocus(string) tea.Cmd
 	FocusedID() string
 	ResetElemPos()
 	SetElemPos(id string, pos int)
 	OverlayHelp(string) string
 	Width() int
+	Height() int
 }
 
 // StatusListener provides status updates for components.

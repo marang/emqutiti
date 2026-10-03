@@ -90,19 +90,26 @@ type layoutConfig struct {
 
 // uiState groups general UI information such as current focus and layout.
 type uiState struct {
-	focusIndex   int                       // index of the currently focused element
-	modeStack    []constants.AppMode       // mode stack, index 0 is current
-	width        int                       // terminal width
-	height       int                       // terminal height
-	viewport     viewport.Model            // scrolling container for the main view
-	elemPos      map[string]int            // cached Y positions of each box
-	focusOrder   []string                  // order of focusable elements
-	focusMap     map[string]int            // maps element IDs to their index
-	focusMemory  map[constants.AppMode]int // remembers last focus per mode
-	hoveredID    string                    // element currently under the mouse
-	hoveredTopic int                       // topic index currently under the mouse, or -1
-	animation    animationState            // short-lived visual animation state
-	listeners    listenerState             // active asynchronous channel listeners
+	focusIndex           int                       // index of the currently focused element
+	modeStack            []constants.AppMode       // mode stack, index 0 is current
+	width                int                       // terminal width
+	height               int                       // terminal height
+	viewport             viewport.Model            // scrolling container for the main view
+	elemPos              map[string]int            // cached Y positions of each box
+	elemHeight           map[string]int            // rendered box heights for focus visibility
+	focusOrder           []string                  // order of focusable elements
+	focusMap             map[string]int            // maps element IDs to their index
+	focusMemory          map[constants.AppMode]int // remembers last focus per mode
+	hoveredID            string                    // element currently under the mouse
+	hoveredTopic         int                       // topic index currently under the mouse, or -1
+	hoveredResizeID      string
+	panelResize          panelResizeState
+	modifiedKeyInput     bool
+	topicLayoutSelection string
+	topicLayoutWidth     int
+	topicLayoutHeight    int
+	animation            animationState // short-lived visual animation state
+	listeners            listenerState  // active asynchronous channel listeners
 }
 
 type listenerState struct {
@@ -112,6 +119,7 @@ type listenerState struct {
 
 type model struct {
 	mqttClient *MQTTClient
+	mqttOps    mqttOperationState
 
 	connections connections.State
 	history     *history.Component

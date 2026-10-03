@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/marang/emqutiti/constants"
 	"github.com/marang/emqutiti/internal/clipboardutil"
@@ -18,15 +20,18 @@ import (
 )
 
 type historyState struct {
-	list            list.Model
-	items           []Item
-	store           Store
-	selectionAnchor int
-	showArchived    bool
-	filterForm      *historyFilterForm
-	filterQuery     string
-	detail          viewport.Model
-	detailItem      Item
+	list              list.Model
+	items             []Item
+	store             Store
+	selectionAnchor   int
+	selectionBaseline map[Item]bool
+	showArchived      bool
+	filterForm        *historyFilterForm
+	filterQuery       string
+	detail            viewport.Model
+	detailItem        Item
+	detailPayload     string
+	detailWrapWidth   int
 }
 
 // Component provides history browsing and filtering functionality. It holds its
@@ -47,9 +52,6 @@ func (h *Component) Update(msg tea.Msg) tea.Cmd {
 	switch m := msg.(type) {
 	case tea.MouseMsg:
 		h.list, cmd = h.list.Update(m)
-		if m.Action == tea.MouseActionPress && m.Button == tea.MouseButtonLeft {
-			h.HandleSelection(h.list.Index(), m.Shift)
-		}
 		return cmd
 	}
 	h.list, cmd = h.list.Update(msg)
@@ -67,6 +69,7 @@ func (h *Component) Blur() {}
 
 // UpdateDetail handles input when viewing a long history payload.
 func (h *Component) UpdateDetail(msg tea.Msg) tea.Cmd {
+	h.SetDetailSize(h.m.Width(), h.m.Height())
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -88,6 +91,7 @@ func (h *Component) UpdateFilter(msg tea.Msg) tea.Cmd {
 	if h.filterForm == nil {
 		return nil
 	}
+	h.filterForm.SetSize(h.m.Width(), h.m.Height())
 	switch t := msg.(type) {
 	case tea.KeyMsg:
 		switch t.String() {
@@ -99,6 +103,8 @@ func (h *Component) UpdateFilter(msg tea.Msg) tea.Cmd {
 			form, err := h.filterForm.Validate()
 			if err != nil {
 				h.filterForm = &form
+				h.filterForm.syncViewport(false)
+				h.filterForm.viewport.GotoBottom()
 				return nil
 			}
 			h.filterForm = &form
@@ -124,16 +130,30 @@ func (h *Component) UpdateFilter(msg tea.Msg) tea.Cmd {
 
 // ViewDetail renders the full payload of a history message.
 func (h *Component) ViewDetail() string {
+	h.SetDetailSize(h.m.Width(), h.m.Height())
 	lines := strings.Split(h.detail.View(), "\n")
-	help := ui.InfoStyle.Render("[esc] back • [ctrl+c] copy")
+	help := ansi.TruncateWc(ui.InfoStyle.Render("[esc] back • [ctrl+c] copy"), h.detail.Width, "")
 	lines = append(lines, help)
 	content := strings.Join(lines, "\n")
 	sp := -1.0
-	if h.detail.Height < lipgloss.Height(content) {
+	if h.detail.TotalLineCount() > h.detail.Height {
 		sp = h.detail.ScrollPercent()
 	}
-	view := ui.LegendBox(content, "Message", h.m.Width()-2, h.m.Height()-2, ui.ColGreen, true, sp)
+	// OverlayHelp adds one row; the box needs two borders and a help row.
+	view := ui.LegendBox(content, "Message", h.m.Width()-2, max(1, h.m.Height()-3), ui.ColGreen, true, sp)
 	return h.m.OverlayHelp(view)
+}
+
+// SetDetailSize sizes and reflows the payload for the full terminal dimensions.
+func (h *Component) SetDetailSize(width, height int) {
+	h.detail.Width = max(1, width-4)
+	h.detail.Height = max(1, height-4)
+	if h.detailWrapWidth != h.detail.Width || h.detailPayload != h.detailItem.Payload {
+		h.detailPayload = h.detailItem.Payload
+		h.detailWrapWidth = h.detail.Width
+		h.detail.SetContent(ansi.WrapWc(FormatDetailPayload(h.detailItem.Payload), h.detail.Width, ""))
+	}
+	h.detail.SetYOffset(h.detail.YOffset)
 }
 
 // FormatDetailPayload prepares payload text for the detail view. JSON payloads
@@ -153,8 +173,13 @@ func (h *Component) ViewFilter() string {
 	if h.filterForm == nil {
 		return ""
 	}
-	content := lipgloss.NewStyle().Padding(1, 2).Render(h.filterForm.View())
-	box := ui.LegendBox(content, "Filter", h.m.Width()/2, 0, ui.ColBlue, true, -1)
+	h.filterForm.SetSize(h.m.Width(), h.m.Height())
+	content := lipgloss.NewStyle().Padding(h.filterForm.verticalPadding(), 2).Render(h.filterForm.View())
+	sp := -1.0
+	if h.filterForm.viewport.TotalLineCount() > h.filterForm.viewport.Height {
+		sp = h.filterForm.viewport.ScrollPercent()
+	}
+	box := ui.LegendBox(content, "Filter", h.filterForm.boxWidth(), lipgloss.Height(content), ui.ColBlue, true, sp)
 	return lipgloss.Place(h.m.Width(), h.m.Height(), lipgloss.Center, lipgloss.Center, box)
 }
 
@@ -171,8 +196,12 @@ func (h *Component) appendItems(items ...Item) {
 		if h.store == nil {
 			return
 		}
-		var listItems []list.Item
-		h.items, listItems = ApplyFilter(h.filterQuery, h.store, h.showArchived)
+		items, listItems := ApplyFilter(h.filterQuery, h.store, h.showArchived)
+		h.PreserveSelection(items)
+		h.items = items
+		for i, item := range items {
+			listItems[i] = item
+		}
 		h.list.SetItems(listItems)
 		if len(listItems) > 0 {
 			h.list.Select(len(listItems) - 1)
@@ -200,9 +229,9 @@ func (h *Component) Append(topic, payload, kind string, retained bool, logText s
 	hi := Item{Timestamp: ts, Topic: topic, Payload: text, Kind: kind, Archived: false, Retained: retained}
 	items := []Item{hi}
 	if h.store != nil {
-		if err := h.store.Append(Message{Timestamp: ts, Topic: topic, Payload: payload, Kind: kind, Archived: false, Retained: retained}); err != nil {
-			fmt.Printf("history append error: %v\n", err)
+		if err := h.store.Append(Message{Timestamp: ts, Topic: topic, Payload: text, Kind: kind, Archived: false, Retained: retained}); err != nil {
 			msg := fmt.Sprintf("history append error: %v", err)
+			log.Print(msg)
 			items = append(items, Item{Timestamp: ts, Topic: "", Payload: msg, Kind: "log"})
 		}
 	}

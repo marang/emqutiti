@@ -27,9 +27,11 @@ func TestTopicPulseExpires(t *testing.T) {
 
 func TestToggleMsgStartsTopicPulse(t *testing.T) {
 	m, _ := initialModel(nil)
+	m.mqttClient = &MQTTClient{Client: &mockClient{}}
 	m.topics.Items = []topics.Item{{Name: "sensors/temp", Subscribed: true}}
 
-	m.Update(topics.ToggleMsg{Topic: "sensors/temp", Subscribed: true})
+	_, cmd := m.Update(topics.ToggleMsg{Topic: "sensors/temp", Subscribed: true})
+	applyMQTTCommand(m, cmd)
 
 	if _, ok := m.topicPulsePhase("sensors/temp"); !ok {
 		t.Fatalf("expected topic toggle pulse")
@@ -38,11 +40,12 @@ func TestToggleMsgStartsTopicPulse(t *testing.T) {
 
 func TestPublishStartsFallbackTopicPulse(t *testing.T) {
 	m, _ := initialModel(nil)
+	m.mqttClient = &MQTTClient{Client: &mockClient{}}
 	m.topics.Items = []topics.Item{{Name: "sensors/temp", Subscribed: true}}
 	m.topics.SetSelected(0)
 	m.SetFocus(idMessage)
 
-	m.handlePublishKey()
+	applyMQTTCommand(m, m.handlePublishKey())
 
 	if _, ok := m.topicPulsePhase("sensors/temp"); !ok {
 		t.Fatalf("expected publish fallback topic pulse")

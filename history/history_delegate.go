@@ -35,8 +35,8 @@ func (d historyDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	width := m.Width()
 	var label string
 	ts := hi.Timestamp.Format("2006-01-02 15:04:05.000")
-	var lblColor lipgloss.Color
-	var msgColor lipgloss.Color
+	var lblColor lipgloss.TerminalColor
+	var msgColor lipgloss.TerminalColor
 	switch hi.Kind {
 	case "sub":
 		label = fmt.Sprintf("SUB %s", hi.Topic)
@@ -48,8 +48,8 @@ func (d historyDelegate) Render(w io.Writer, m list.Model, index int, item list.
 		msgColor = ui.ColSub
 	default:
 		label = ""
-		lblColor = ui.ColGray
-		msgColor = ui.ColGray
+		lblColor = ui.TextMain
+		msgColor = ui.TextMain
 	}
 	if hi.Retained && hi.Kind != "log" {
 		label += " (retained)"
@@ -68,8 +68,8 @@ func (d historyDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	if hi.Kind != "log" {
 		header := lipgloss.JoinHorizontal(lipgloss.Top,
 			lipgloss.NewStyle().Foreground(lblColor).Render(label),
-			lipgloss.NewStyle().Foreground(ui.ColGray).Render(" "+ts+":"))
-		lines = append(lines, lipgloss.PlaceHorizontal(innerWidth, align, header))
+			lipgloss.NewStyle().Foreground(ui.TextMuted).Render(" "+ts+":"))
+		lines = append(lines, lipgloss.PlaceHorizontal(innerWidth, align, ansi.Truncate(header, innerWidth, "...")))
 	}
 	payload := strings.ReplaceAll(hi.Payload, "\r\n", "\n")
 	payload = strings.ReplaceAll(payload, "\n", "\u23ce")
@@ -77,27 +77,24 @@ func (d historyDelegate) Render(w io.Writer, m list.Model, index int, item list.
 	if more {
 		payload = ansi.Truncate(payload, historyPreviewLimit, "")
 	}
-	trunc := ansi.Truncate(hi.Payload, innerWidth, "")
-	trunc = strings.NewReplacer("\r\n", "\u23ce", "\n", "\u23ce").Replace(trunc)
-	if more || lipgloss.Width(hi.Payload) > innerWidth {
-		if lipgloss.Width(trunc) >= innerWidth {
-			trunc = ansi.Truncate(trunc, innerWidth-1, "")
-		}
-		trunc += "\u2026"
+	trunc := ansi.Truncate(payload, innerWidth, "...")
+	if more {
+		trunc = ansi.Truncate(trunc, max(0, innerWidth-3), "") + "..."
 	}
 	fg := msgColor
+	rendered := lipgloss.NewStyle().Foreground(fg).Render(trunc)
 	if hi.Kind == "log" && len(lines) == 0 {
-		trunc = ts + ": " + trunc
-		fg = ui.ColGray
+		stamp := lipgloss.NewStyle().Foreground(ui.TextMuted).Render(ts + ": ")
+		rendered = ansi.Truncate(stamp+rendered, innerWidth, "...")
 	}
-	lines = append(lines, lipgloss.PlaceHorizontal(innerWidth, align,
-		lipgloss.NewStyle().Foreground(fg).Render(trunc)))
+	lines = append(lines, lipgloss.PlaceHorizontal(innerWidth, align, rendered))
 	if len(lines) < 2 {
 		lines = append(lines, lipgloss.PlaceHorizontal(innerWidth, align, ""))
 	}
 	if hi.IsSelected != nil && *hi.IsSelected {
+		background := lipgloss.AdaptiveColor{Light: "254", Dark: "237"}
 		for i, l := range lines {
-			lines[i] = lipgloss.NewStyle().Background(ui.ColDarkGray).Render(l)
+			lines[i] = lipgloss.NewStyle().Background(background).Render(l)
 		}
 	}
 	barColor := ui.ColGray

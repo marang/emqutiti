@@ -52,40 +52,12 @@ func (m *model) handleShiftTabKey() tea.Cmd {
 
 // handleResizeUpKey reduces the height of the focused pane.
 func (m *model) handleResizeUpKey() tea.Cmd {
-	id := m.ui.focusOrder[m.ui.focusIndex]
-	switch id {
-	case idMessage:
-		if m.layout.message.height > 1 {
-			m.layout.message.height--
-			m.message.Input().SetHeight(m.layout.message.height)
-		}
-	case idHistory:
-		if m.layout.history.height > 1 {
-			m.layout.history.height--
-			m.history.List().SetSize(m.ui.width-4, m.layout.history.height)
-		}
-	case idTopics:
-		if m.layout.topics.height > 1 {
-			m.layout.topics.height--
-		}
-	}
-	return nil
+	return m.resizeFocusedPanel(-1)
 }
 
 // handleResizeDownKey increases the height of the focused pane.
 func (m *model) handleResizeDownKey() tea.Cmd {
-	id := m.ui.focusOrder[m.ui.focusIndex]
-	switch id {
-	case idMessage:
-		m.layout.message.height++
-		m.message.Input().SetHeight(m.layout.message.height)
-	case idHistory:
-		m.layout.history.height++
-		m.history.List().SetSize(m.ui.width-4, m.layout.history.height)
-	case idTopics:
-		m.layout.topics.height++
-	}
-	return nil
+	return m.resizeFocusedPanel(1)
 }
 
 // handleModeSwitchKey switches application modes for special key combos.

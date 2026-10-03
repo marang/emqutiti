@@ -1,7 +1,10 @@
 package traces
 
 import (
+	"errors"
+	"io"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +16,55 @@ import (
 type fakeMessage struct {
 	topic   string
 	payload []byte
+}
+
+type failingSubscriptionClient struct{ *fakeClient }
+
+func (f *failingSubscriptionClient) Subscribe(string, byte, mqtt.MessageHandler) error {
+	return errors.New("subscription denied")
+}
+
+func TestTraceSubscriptionFailureReportsWithoutStdout(t *testing.T) {
+	previousAddr := proxyAddr
+	SetProxyAddr("127.0.0.1:1")
+	t.Cleanup(func() { SetProxyAddr(previousAddr) })
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousStdout := os.Stdout
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = previousStdout; r.Close(); w.Close() })
+	tr := newTracer(TracerConfig{Topics: []string{"topic"}, Start: time.Now().Add(-time.Second)}, &failingSubscriptionClient{newFakeClient()})
+	if err := tr.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(tr.Stop)
+	select {
+	case <-tr.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("subscription failure did not stop tracer")
+	}
+	w.Close()
+	os.Stdout = previousStdout
+	output, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output) != 0 {
+		t.Errorf("subscription failure wrote to stdout: %q", output)
+	}
+	select {
+	case err := <-tr.report:
+		if !strings.Contains(err.Error(), "subscribe topic: subscription denied") {
+			t.Fatalf("error lost subscription context: %v", err)
+		}
+	default:
+		t.Fatal("subscription failure did not reach the UI error channel")
+	}
+	if tr.Running() {
+		t.Fatal("failed subscription is still running")
+	}
 }
 
 func (f fakeMessage) Duplicate() bool   { return false }

@@ -6,6 +6,10 @@ import (
 
 // ViewForm renders the form for new traces.
 func (t *Component) ViewForm() string {
+	if t.form == nil {
+		return ""
+	}
+	t.SetSize(t.api.Width(), t.api.Height())
 	t.api.ResetElemPos()
 	focused := t.api.FocusedID() == IDForm
 	if t.form != nil {

@@ -7,6 +7,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/marang/emqutiti/ui"
 )
@@ -14,6 +16,9 @@ import (
 type traceForm struct {
 	ui.Form
 	errMsg string
+	width  int
+	height int
+	rows   []int
 }
 
 const (
@@ -36,6 +41,7 @@ func newTraceForm(profiles []string, current string, topics []string) traceForm 
 	endField := ui.NewTextField("", "End (YYYY-MM-DDTHH:MM:SSZ or +HH:MM)", ui.WithRFC3339())
 	fields := []ui.Field{keyField, profileField, topicsField, startField, endField}
 	tf := traceForm{Form: ui.Form{Fields: fields, Focus: 0}}
+	tf.SetSize(76, 21)
 	if err != nil {
 		tf.errMsg = err.Error()
 	}
@@ -54,8 +60,12 @@ func (f traceForm) Update(msg tea.Msg) (traceForm, tea.Cmd) {
 		f.CycleFocus(m)
 	case tea.MouseMsg:
 		if m.Action == tea.MouseActionPress && m.Button == tea.MouseButtonLeft {
-			if m.Y >= 1 && m.Y-1 < len(f.Fields) {
-				f.Focus = m.Y - 1
+			f.View()
+			for i, row := range f.rows {
+				if m.X >= 0 && m.X < f.width && m.Y == row {
+					f.Focus = i
+					break
+				}
 			}
 		}
 	}
@@ -99,26 +109,54 @@ func (f traceForm) Validate() (traceForm, error) {
 }
 
 // View renders the form interface.
-func (f traceForm) View() string {
+func (f *traceForm) View() string {
 	labels := []string{"Key", "Profile", "Topics", "Start", "End"}
-	var b strings.Builder
+	help := ui.ListFooter(f.width, "[tab] next", "[enter] save", "[esc] cancel")
+	errorRows := []string{}
+	if f.errMsg != "" {
+		errorRows = strings.Split(ansi.Hardwrap(f.errMsg, f.width, true), "\n")
+		budget := max(1, f.height-len(f.Fields)-lipgloss.Height(help))
+		if len(errorRows) > budget {
+			errorRows = errorRows[:budget]
+			errorRows[len(errorRows)-1] = ansi.Truncate(errorRows[len(errorRows)-1], max(1, f.width-3), "") + "..."
+		}
+	}
+	optionBudget := max(0, f.height-len(f.Fields)-len(errorRows)-lipgloss.Height(help))
+	var rows []string
+	f.rows = make([]int, len(f.Fields))
 	for i, fld := range f.Fields {
 		label := labels[i]
 		if i == f.Focus {
 			label = ui.FocusedStyle.Render(label)
 		}
-		b.WriteString(label + ": " + fld.View() + "\n")
+		f.rows[i] = len(rows)
+		rows = append(rows, ansi.Truncate(label+": "+fld.View(), f.width, "..."))
 		if sf, ok := fld.(*ui.SelectField); ok && f.IsFocused(i) {
 			if opts := sf.OptionsView(); opts != "" {
-				b.WriteString(opts + "\n")
+				options := strings.Split(opts, "\n")
+				start := max(0, sf.Index-optionBudget+1)
+				end := min(len(options), start+optionBudget)
+				for _, option := range options[start:end] {
+					rows = append(rows, ansi.Truncate(option, f.width, "..."))
+				}
 			}
 		}
 	}
-	if f.errMsg != "" {
-		b.WriteString("\n" + ui.ErrorStyle.Render(f.errMsg))
+	for _, row := range errorRows {
+		rows = append(rows, ui.ErrorStyle.Render(row))
 	}
-	b.WriteString("\n" + ui.InfoStyle.Render("[enter] save  [esc] cancel"))
-	return b.String()
+	rows = append(rows, help)
+	return strings.Join(rows, "\n")
+}
+
+func (f *traceForm) SetSize(width, height int) {
+	f.width, f.height = max(1, width), max(1, height)
+	labels := []string{"Key", "Profile", "Topics", "Start", "End"}
+	for i, fld := range f.Fields {
+		if text, ok := fld.(*ui.TextField); ok {
+			text.Width = max(1, f.width-lipgloss.Width(labels[i])-2-lipgloss.Width(text.Prompt)-1)
+		}
+	}
 }
 
 // Config returns the tracer configuration from the form values.

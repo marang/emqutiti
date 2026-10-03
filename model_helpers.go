@@ -71,6 +71,9 @@ func (m *model) startHistoryFilter() tea.Cmd {
 // SetMode updates the current mode and focus order.
 func (m *model) SetMode(mode constants.AppMode) tea.Cmd {
 	prevMode := m.CurrentMode()
+	if mode != prevMode {
+		m.cancelPanelResize()
+	}
 	if m.focus != nil && len(m.ui.focusOrder) > m.ui.focusIndex {
 		if f, ok := m.focusables[m.ui.focusOrder[m.ui.focusIndex]]; ok {
 			f.Blur()

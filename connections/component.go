@@ -123,8 +123,8 @@ func NewComponent(nav Navigator, api API) *Component {
 		},
 		constants.KeyCtrlO: func(tea.KeyMsg) tea.Cmd {
 			mgr := c.api.Manager()
-			i := mgr.ConnectionsList.Index()
-			if i >= 0 {
+			i := mgr.ConnectionsList.GlobalIndex()
+			if i >= 0 && i < len(mgr.Profiles) {
 				if mgr.DefaultProfileName == mgr.Profiles[i].Name {
 					mgr.ClearDefault()
 				} else {
@@ -139,7 +139,7 @@ func NewComponent(nav Navigator, api API) *Component {
 		},
 		constants.KeyE: func(tea.KeyMsg) tea.Cmd {
 			mgr := c.api.Manager()
-			i := mgr.ConnectionsList.Index()
+			i := mgr.ConnectionsList.GlobalIndex()
 			if i >= 0 && i < len(mgr.Profiles) {
 				c.api.BeginEdit(i)
 				return c.nav.SetMode(constants.ModeEditConnection)
@@ -148,7 +148,7 @@ func NewComponent(nav Navigator, api API) *Component {
 		},
 		constants.KeyEnter: func(tea.KeyMsg) tea.Cmd {
 			mgr := c.api.Manager()
-			i := mgr.ConnectionsList.Index()
+			i := mgr.ConnectionsList.GlobalIndex()
 			if i >= 0 && i < len(mgr.Profiles) {
 				p := mgr.Profiles[i]
 				if p.Name == c.api.Active() && mgr.Statuses[p.Name] == "connected" {
@@ -164,8 +164,8 @@ func NewComponent(nav Navigator, api API) *Component {
 		},
 		constants.KeyDelete: func(tea.KeyMsg) tea.Cmd {
 			mgr := c.api.Manager()
-			i := mgr.ConnectionsList.Index()
-			if i >= 0 {
+			i := mgr.ConnectionsList.GlobalIndex()
+			if i >= 0 && i < len(mgr.Profiles) {
 				c.api.BeginDelete(i)
 				return c.api.ListenStatus()
 			}
@@ -186,15 +186,16 @@ func (c *Component) Update(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case ConnectResult:
-		c.api.HandleConnectResult(msg)
+		result := c.api.HandleConnectResult(msg)
 		if msg.Err == nil {
 			cmd = c.nav.SetMode(constants.ModeClient)
-			return tea.Batch(cmd, c.api.ListenStatus())
+			return tea.Batch(result, cmd, c.api.ListenStatus())
 		}
-		return c.api.ListenStatus()
+		return tea.Batch(result, c.api.ListenStatus())
 	case tea.KeyMsg:
 		mgr := c.api.Manager()
-		if mgr.ConnectionsList.FilterState() == list.Filtering && msg.String() != constants.KeyEnter {
+		if msg.String() != constants.KeyCtrlD && (mgr.ConnectionsList.FilterState() == list.Filtering ||
+			(msg.String() == constants.KeyEsc && mgr.ConnectionsList.FilterState() == list.FilterApplied)) {
 			break
 		}
 		if act, ok := c.actions[msg.String()]; ok {
@@ -211,10 +212,10 @@ func (c *Component) View() string {
 	c.api.ResetElemPos()
 	c.api.SetElemPos(constants.IDConnList, 1)
 	cw := c.nav.Width() - 4
-	ch := c.nav.Height() - 6
-	c.api.Manager().ConnectionsList.SetSize(cw, ch)
+	help := ui.ListFooter(cw, "[enter] connect/open", "Ctrl+X disconnect", "[a] add", "[e] edit", "[del] delete", "Ctrl+O default", "[/] filter", "Alt+R traces")
+	ch := c.nav.Height() - 3 - lipgloss.Height(help)
+	ui.SizeManagerList(&c.api.Manager().ConnectionsList, cw, ch)
 	listView := c.api.Manager().ConnectionsList.View()
-	help := ui.InfoStyle.Render("[enter] connect/open client  Ctrl+X disconnect  [a]dd [e]dit [del] delete  Ctrl+O default  Alt+R traces")
 	content := lipgloss.JoinVertical(lipgloss.Left, listView, help)
 	view := ui.LegendBox(content, "Brokers", c.nav.Width()-2, 0, ui.ColBlue, true, -1)
 	return c.api.OverlayHelp(view)

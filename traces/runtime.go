@@ -137,7 +137,7 @@ func (t *Tracer) Start() error {
 				}
 				t.mu.Unlock()
 			}); err != nil {
-				fmt.Printf("subscribe %s: %v\n", topic, err)
+				t.reportErr(fmt.Errorf("subscribe %s: %w", topic, err))
 				return
 			}
 		}

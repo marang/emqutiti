@@ -11,17 +11,41 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
+	"github.com/marang/emqutiti/constants"
 	"github.com/marang/emqutiti/ui"
 )
 
 // Form collects broker configuration fields.
 type Form struct {
 	ui.Form
-	Index    int   // -1 for new
-	fromEnv  bool  // current state of env loading
-	rowIndex []int // maps rendered rows to field indices; -1 for non-field rows
+	Index       int // -1 for new
+	fromEnv     bool
+	width       int
+	height      int
+	offset      int
+	lastFocus   int
+	revealFocus bool
+	rows        []formRow
+	validation  map[int]string
 }
+
+type formRow struct {
+	text          string
+	field, option int // -1 for non-field rows or non-option rows
+}
+
+// FormAction identifies a command in the form's fixed footer.
+type FormAction int
+
+const (
+	NoFormAction FormAction = iota
+	SaveForm
+	CancelForm
+)
+
+const formActions = "[enter] save  [esc] cancel"
 
 type fieldType int
 
@@ -149,7 +173,7 @@ func NewForm(p Profile, idx int) Form {
 			fld.SetReadOnly(true)
 		}
 	}
-	cf := Form{Form: ui.Form{Fields: fields, Focus: 0}, Index: idx, fromEnv: p.FromEnv}
+	cf := Form{Form: ui.Form{Fields: fields, Focus: 0}, Index: idx, fromEnv: p.FromEnv, lastFocus: -1}
 	cf.ApplyFocus()
 	return cf
 }
@@ -159,21 +183,81 @@ func (f Form) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+// SetSize sets the available content area, excluding the surrounding box.
+func (f *Form) SetSize(width, height int) {
+	width, height = max(1, width), max(2, height)
+	if f.width != width || f.height != height {
+		f.width, f.height = width, height
+		f.revealFocus = true
+	}
+}
+
+// CycleFocus uses the shared tab order and reveals the newly focused field.
+func (f *Form) CycleFocus(msg tea.KeyMsg) {
+	f.Form.CycleFocus(msg)
+	f.revealFocus = true
+}
+
+// ActionAt reports a footer command at content-local coordinates.
+func (f *Form) ActionAt(x, y int) FormAction {
+	footerY := len(f.rows) + 1
+	if f.height > 0 {
+		footerY = f.height - 1
+	}
+	if y != footerY || x < 0 || (f.width > 0 && x >= f.width) {
+		return NoFormAction
+	}
+	switch {
+	case x < len("[enter] save"):
+		return SaveForm
+	case x >= len("[enter] save  ") && x < len(formActions):
+		return CancelForm
+	default:
+		return NoFormAction
+	}
+}
+
 // Update handles keyboard and mouse events for the form.
 func (f Form) Update(msg tea.Msg) (Form, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch m := msg.(type) {
 	case tea.KeyMsg:
+		switch m.String() {
+		case constants.KeyCtrlUp, constants.KeyCtrlK:
+			f.scroll(-1)
+			return f, nil
+		case constants.KeyCtrlDown, constants.KeyCtrlJ:
+			f.scroll(1)
+			return f, nil
+		}
 		f.CycleFocus(m)
 	case tea.MouseMsg:
-		if m.Action == tea.MouseActionPress && m.Button == tea.MouseButtonLeft {
-			row := m.Y - 1
-			switch {
-			case row >= 0 && row < len(f.rowIndex) && f.rowIndex[row] >= 0:
-				f.Focus = f.rowIndex[row]
-			case row >= 0 && row < len(f.Fields) && len(f.rowIndex) == 0:
-				f.Focus = row
-			}
+		if m.X < 0 || m.Y < 0 || (f.width > 0 && m.X >= f.width) || (f.height > 0 && m.Y >= f.height-1) {
+			return f, nil
+		}
+		switch m.Button {
+		case tea.MouseButtonWheelUp:
+			f.scroll(-1)
+			return f, nil
+		case tea.MouseButtonWheelDown:
+			f.scroll(1)
+			return f, nil
+		}
+		if m.Action != tea.MouseActionPress || m.Button != tea.MouseButtonLeft {
+			return f, nil
+		}
+		f.View()
+		row := m.Y + f.offset
+		if row >= len(f.rows) || f.rows[row].field < 0 {
+			return f, nil
+		}
+		hit := f.rows[row]
+		f.Focus = hit.field
+		f.revealFocus = true
+		f.ApplyFocus()
+		if hit.option >= 0 {
+			f.Fields[hit.field].(*ui.SelectField).Index = hit.option
+			return f, nil
 		}
 	}
 	f.ApplyFocus()
@@ -184,12 +268,16 @@ func (f Form) Update(msg tea.Msg) (Form, tea.Cmd) {
 	}
 	idxFromEnv := fieldIndex["FromEnv"]
 	if chk, ok := f.Fields[idxFromEnv].(*ui.CheckField); ok && chk.Bool() != f.fromEnv {
-		p, err := f.Profile()
+		p, err := f.Validate()
 		if err != nil {
 			chk.SetBool(f.fromEnv)
 			cmds = append(cmds, func() tea.Msg { return StatusMessage(err.Error()) })
 		} else {
+			width, height := f.width, f.height
 			f = NewForm(p, f.Index)
+			if width > 0 && height > 0 {
+				f.SetSize(width, height)
+			}
 			f.Focus = idxFromEnv
 			f.fromEnv = chk.Bool()
 		}
@@ -197,10 +285,34 @@ func (f Form) Update(msg tea.Msg) (Form, tea.Cmd) {
 	return f, tea.Batch(cmds...)
 }
 
-// View renders the form with labels in a left column and inputs on the right.
+// View renders the scrollable form with a fixed save/cancel footer.
 func (f *Form) View() string {
-	f.rowIndex = f.rowIndex[:0]
-	var rows []string
+	f.renderRows()
+	if f.height == 0 {
+		lines := make([]string, 0, len(f.rows)+2)
+		for _, row := range f.rows {
+			lines = append(lines, row.text)
+		}
+		return strings.Join(append(lines, "", ui.InfoStyle.Render(formActions)), "\n")
+	}
+	bodyHeight := f.height - 1
+	if f.revealFocus || f.lastFocus != f.Focus {
+		f.ensureFocusedVisible(bodyHeight)
+	}
+	f.offset = min(max(0, f.offset), max(0, len(f.rows)-bodyHeight))
+	f.lastFocus, f.revealFocus = f.Focus, false
+	lines := make([]string, bodyHeight, f.height)
+	for y := range lines {
+		if row := f.offset + y; row < len(f.rows) {
+			lines[y] = f.rows[row].text
+		}
+	}
+	footer := ansi.Truncate(ui.InfoStyle.PaddingLeft(0).Render(formActions), f.width, "")
+	return strings.Join(append(lines, footer), "\n")
+}
+
+func (f *Form) renderRows() {
+	f.rows = f.rows[:0]
 	maxLabel := 0
 	for _, fd := range formFields {
 		if w := lipgloss.Width(fd.label); w > maxLabel {
@@ -210,28 +322,44 @@ func (f *Form) View() string {
 	idxFromEnv := fieldIndex["FromEnv"]
 	idxName := fieldIndex["Name"]
 	labelStyle := lipgloss.NewStyle().Width(maxLabel).Align(lipgloss.Right)
+	inputWidth := f.width - maxLabel - 2
+	stacked := f.width > 0 && inputWidth < 8
+	if stacked {
+		inputWidth = f.width
+	}
 	for i, in := range f.Fields {
 		label := formFields[i].label
 		if i == f.Focus {
 			label = ui.FocusedStyle.Render(label)
 		}
 		if i == idxFromEnv {
-			rows = append(rows, "")
-			f.rowIndex = append(f.rowIndex, -1)
+			f.appendRows("", -1, -1)
 		}
-		left := labelStyle.Render(label)
-		row := lipgloss.JoinHorizontal(lipgloss.Top, left, ": ", in.View())
-		rows = append(rows, row)
-		f.rowIndex = append(f.rowIndex, i)
+		if tf, ok := in.(*ui.TextField); ok && f.width > 0 {
+			width := max(1, inputWidth-lipgloss.Width(tf.Prompt)-1)
+			if tf.Width != width {
+				tf.Width = width
+				tf.SetCursor(tf.Position())
+			}
+		}
+		indent := maxLabel + 2
+		if stacked {
+			f.appendRows(label+":", i, -1)
+			f.appendRows(in.View(), i, -1)
+			indent = 0
+		} else {
+			row := lipgloss.JoinHorizontal(lipgloss.Top, labelStyle.Render(label), ": ", in.View())
+			f.appendRows(row, i, -1)
+		}
 		if sf, ok := in.(*ui.SelectField); ok && f.IsFocused(i) {
 			if opts := sf.OptionsView(); opts != "" {
-				indent := lipgloss.NewStyle().MarginLeft(maxLabel + 2).Render(opts)
-				parts := strings.Split(indent, "\n")
-				rows = append(rows, parts...)
-				for range parts {
-					f.rowIndex = append(f.rowIndex, -1)
+				for option, line := range strings.Split(opts, "\n") {
+					f.appendRows(strings.Repeat(" ", indent)+line, i, option)
 				}
 			}
+		}
+		if message := f.validation[i]; message != "" {
+			f.appendRows(ui.FormError.Render(message), i, -1)
 		}
 		if i == idxFromEnv {
 			name := strings.TrimSpace(f.Fields[idxName].Value())
@@ -244,11 +372,9 @@ func (f *Form) View() string {
 				"Turn off to edit manually.",
 			}
 			for _, line := range hintText {
-				rows = append(rows, ui.InfoStyle.Render(line))
-				f.rowIndex = append(f.rowIndex, -1)
+				f.appendRows(ui.InfoStyle.Render(line), -1, -1)
 			}
-			rows = append(rows, "")
-			f.rowIndex = append(f.rowIndex, -1)
+			f.appendRows("", -1, -1)
 		}
 	}
 	if chk, ok := f.Fields[idxFromEnv].(*ui.CheckField); ok && chk.Bool() {
@@ -257,12 +383,69 @@ func (f *Form) View() string {
 		if len(vars) == 0 {
 			vars = []string{prefix + "<FIELD>"}
 		}
-		rows = append(rows, ui.InfoStyle.Render("Values loaded from env vars: "+strings.Join(vars, ", ")))
-		f.rowIndex = append(f.rowIndex, -1)
+		f.appendRows(ui.InfoStyle.Render("Values loaded from env vars: "+strings.Join(vars, ", ")), -1, -1)
 	}
-	rows = append(rows, "", ui.InfoStyle.Render("[enter] save  [esc] cancel"))
-	f.rowIndex = append(f.rowIndex, -1, -1)
-	return strings.Join(rows, "\n")
+}
+
+func (f *Form) appendRows(text string, field, option int) {
+	if f.width > 0 {
+		text = ansi.Wrap(text, f.width, "")
+	}
+	for _, line := range strings.Split(text, "\n") {
+		f.rows = append(f.rows, formRow{text: line, field: field, option: option})
+	}
+}
+
+func (f *Form) ensureFocusedVisible(height int) {
+	first, last := -1, -1
+	for i, row := range f.rows {
+		if row.field == f.Focus {
+			if first < 0 {
+				first = i
+			}
+			last = i
+		}
+	}
+	if first < 0 {
+		return
+	}
+	if first < f.offset || last-first+1 > height {
+		f.offset = first
+	} else if last >= f.offset+height {
+		f.offset = last - height + 1
+	}
+}
+
+func (f *Form) scroll(delta int) {
+	f.View()
+	if f.height > 0 {
+		f.offset = min(max(0, f.offset+delta), max(0, len(f.rows)-(f.height-1)))
+	}
+}
+
+// Validate preserves input and reveals the first invalid numeric field.
+func (f *Form) Validate() (Profile, error) {
+	p, err := f.Profile()
+	f.validation = make(map[int]string)
+	if err == nil {
+		return p, nil
+	}
+	rt := reflect.TypeOf(Profile{})
+	for i, fd := range formFields {
+		field, ok := rt.FieldByName(fd.key)
+		if !ok || field.Type.Kind() != reflect.Int || f.Fields[i].Value() == "" {
+			continue
+		}
+		if _, parseErr := strconv.Atoi(f.Fields[i].Value()); parseErr != nil {
+			if len(f.validation) == 0 {
+				f.Focus = i
+			}
+			f.validation[i] = "Enter a whole number."
+		}
+	}
+	f.revealFocus = true
+	f.ApplyFocus()
+	return p, err
 }
 
 // Profile builds a Profile struct from the form values.
