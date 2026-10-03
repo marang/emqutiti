@@ -264,6 +264,8 @@ Additional notes for repository contributors are available in [AGENTS.md](AGENTS
 
 ### Building
 
+Go 1.26.8 or newer is required, including the release toolchain's security fixes.
+
 Build and start the local binary:
 
 ```bash

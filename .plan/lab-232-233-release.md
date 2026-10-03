@@ -81,7 +81,7 @@
 - `make test` passed: vet and all packages; root regressions took 41.706s.
 - `go test -race ./...` passed; root regressions took 54.175s.
 - Formatting, `git diff --check` and `go mod tidy` passed. Only existing
-  dependencies were promoted to direct use; no dependency version changed.
+  dependencies were promoted to direct use in this initial integrated pass.
 - `make build`, Darwin arm64 and Windows amd64 cross-builds passed.
 - Live isolated PTY smoke passed on the final build: broker list/form, typing,
   Tab, 80x24 -> 40x16 resize with draft/footer intact, Esc and Ctrl+D; exit 0.
@@ -97,3 +97,25 @@
 - Live external brokers and manual system-keyring examples were not exercised;
   MQTT/proxy/TLS integration uses isolated loopback fixtures. Linux PTY tests
   validate emitted bytes/raw restoration, not a physical terminal's key mapping.
+
+## Pre-Release Security Gate
+
+- The first main push reported five existing GitHub dependency alerts. Upgrade
+  gRPC 1.80.0 -> 1.83.2 and its required dependency closure (including x/net
+  0.58.0), without a broad dependency refresh or TUI-library migration.
+- Replace both deprecated grpc.Dial calls with grpc.NewClient; validate real
+  proxy RPCs and status logging, including lazy connection/cancellation behavior.
+- A scan with the previous release toolchain (Go 1.26.2) found eight reachable
+  standard-library vulnerabilities. Raise the minimum/release Go patch to
+  1.26.8, retaining the same Go feature series.
+- Patch the additional imported S2 dictionary issue with compress 1.18.7.
+  The vulnerable function was not reachable in the scan, but the patch removes
+  the remaining package-level finding as well.
+- Repeat full checks, independent focused review and vulnerability scanning
+  using the exact patched release toolchain before tagging.
+- Independent dependency/API review passed. Real proxy status RPC success and
+  stalled-handshake deadline tests fill the status-logging coverage gap.
+- `GOTOOLCHAIN=go1.26.8 govulncheck ./...` passed with no vulnerabilities found
+  at symbol, package or module level; final full normal tests passed (root 43.197s).
+- Final exact-toolchain full race tests passed (root 53.552s), as did the build,
+  Darwin/Windows cross-builds and isolated live PTY smoke on the updated binary.

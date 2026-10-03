@@ -39,7 +39,7 @@ func logProxyStatus(addr string) {
 		log.Println(lipgloss.NewStyle().Foreground(ui.ColWarn).Render(msg))
 		return
 	}
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		msg := fmt.Sprintf("%s proxy unreachable: %v", time.Now().Format(time.RFC3339), err)
 		log.Println(lipgloss.NewStyle().Foreground(ui.ColRed).Render(msg))

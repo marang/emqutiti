@@ -227,9 +227,9 @@ func (ps *proxyStats) HandleConn(ctx context.Context, s stats.ConnStats) {
 	}
 }
 
-// NewClient returns a client connected to the proxy at addr. Used in tests.
+// NewClient returns a proxy client; the connection opens on its first RPC.
 func NewClient(addr string) (DBProxyClient, *grpc.ClientConn, error) {
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, nil, err
 	}

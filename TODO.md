@@ -41,6 +41,7 @@ This file tracks planned improvements for Emqutiti.
 
 ## Maintenance
 - [x] Automate Go module and GitHub Actions update pull requests with Dependabot
+- [x] Patch pre-release dependency alerts and validate with the patched Go toolchain
 
 ## Packaging
 - [x] Provide a `PKGBUILD` for Arch Linux
