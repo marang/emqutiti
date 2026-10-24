@@ -11,6 +11,9 @@ updates:
     allow:
       - dependency-type: "all"
     groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns: ["*"]
       go-minor-and-patch:
         patterns:
           - "*"
@@ -26,6 +29,9 @@ updates:
       time: "06:00"
       timezone: "Europe/Vienna"
     groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns: ["*"]
       actions-minor-and-patch:
         patterns:
           - "*"

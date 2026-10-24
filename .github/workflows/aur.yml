@@ -22,7 +22,7 @@ jobs:
             base-devel git go pacman-contrib openssh curl sudo
 
       - name: Checkout source repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Strip leading v from tag
         id: v
@@ -48,7 +48,7 @@ jobs:
           sudo -u build makepkg --printsrcinfo > .SRCINFO
 
       - name: Prepare SSH agent
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555 # v0.10.0
         with:
           ssh-private-key: ${{ secrets.AUR_PRIVATE_KEY }}
 

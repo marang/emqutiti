@@ -284,7 +284,7 @@ Additional notes for repository contributors are available in [AGENTS.md](AGENTS
 
 ### Building
 
-Go 1.26.8 or newer is required, including the release toolchain's security fixes.
+Go 1.26.10 or newer is required, including the release toolchain's security fixes.
 
 Build and start the local binary:
 
@@ -311,7 +311,8 @@ Configuration lives in `.github/dependabot.yml` and becomes active once it
 is on the default branch.
 
 The test workflow runs `make test` on pull requests and pushes to `main`,
-including Dependabot pull requests. Updates still require review and merge;
+including Dependabot pull requests. A scheduled and on-PR govulncheck workflow checks reachable vulnerabilities.
+GitHub Actions are pinned to immutable commits. Updates still require review and merge;
 application version tags and releases remain manual.
 
 ### Creating documentation
