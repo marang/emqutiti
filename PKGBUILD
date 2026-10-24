@@ -1,5 +1,5 @@
 pkgname=emqutiti
-pkgver=0.6.2       # update when tagging a release
+pkgver=0.7.15      # update when tagging a release
 pkgrel=1
 pkgdesc="Terminal-based MQTT client written in Go"
 arch=('x86_64')
@@ -12,7 +12,7 @@ sha256sums=('SKIP')
 
 build() {
   cd "emqutiti-$pkgver"
-  go build -trimpath -ldflags="-s -w -X github.com/marang/emqutiti/cmd.version=$pkgver" -o emqutiti ./cmd/emqutiti
+  go build -buildvcs=false -trimpath -ldflags="-s -w -X github.com/marang/emqutiti/cmd.version=$pkgver" -o emqutiti ./cmd/emqutiti
 }
 
 package() {
