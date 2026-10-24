@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,27 @@ import (
 func TestModifiedKeyboardTeaRestoresProtocol(t *testing.T) {
 	for _, action := range []string{"quit", "cancel", "release"} {
 		t.Run(action, func(t *testing.T) {
+			// Runtime preemption can interrupt poll(2). Exercise that path while
+			// checking the actual Tea terminal release/restore sequence.
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+			tid := unix.Gettid()
+			stop, done := make(chan struct{}), make(chan struct{})
+			defer func() { close(stop); <-done }()
+			go func() {
+				defer close(done)
+				ticker := time.NewTicker(time.Millisecond)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-stop:
+						return
+					case <-ticker.C:
+						_ = unix.Tgkill(os.Getpid(), tid, unix.SIGURG)
+					}
+				}
+			}()
+
 			master, slave := ctrlEnterPTY(t)
 			before, err := term.GetState(slave.Fd())
 			if err != nil {
@@ -76,7 +98,7 @@ func TestModifiedKeyboardTeaRestoresProtocol(t *testing.T) {
 			buf := make([]byte, 4096)
 			for {
 				fds := []unix.PollFd{{Fd: int32(master.Fd()), Events: unix.POLLIN}}
-				if n, err := unix.Poll(fds, 10); err != nil {
+				if n, err := ctrlEnterPoll(fds, 10*time.Millisecond); err != nil {
 					t.Fatal(err)
 				} else if n == 0 {
 					break
@@ -138,7 +160,7 @@ func TestModifiedEnterTerminalNegotiationPublishesWithoutNewlines(t *testing.T) 
 		buf := make([]byte, 4096)
 		for ctx.Err() == nil {
 			fds := []unix.PollFd{{Fd: int32(master.Fd()), Events: unix.POLLIN}}
-			if n, err := unix.Poll(fds, 50); err != nil {
+			if n, err := ctrlEnterPoll(fds, 50*time.Millisecond); err != nil {
 				terminalDone <- err
 				return
 			} else if n == 0 {
@@ -312,5 +334,22 @@ func TestCtrlEnterLinuxTTYIdleEscape(t *testing.T) {
 	n, err := f.Read(buf)
 	if err != nil || string(buf[:n]) != "\x1b" || time.Since(start) > time.Second {
 		t.Fatalf("idle ESC = %q, %v after %v", buf[:n], err, time.Since(start))
+	}
+}
+
+// ctrlEnterPoll preserves the timeout across normal signal interruptions.
+func ctrlEnterPoll(fds []unix.PollFd, timeout time.Duration) (int, error) {
+	deadline := time.Now().Add(timeout)
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return 0, nil
+		}
+		millis := int((remaining + time.Millisecond - 1) / time.Millisecond)
+		n, err := unix.Poll(fds, millis)
+		if err == unix.EINTR {
+			continue
+		}
+		return n, err
 	}
 }

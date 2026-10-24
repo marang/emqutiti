@@ -394,3 +394,18 @@ so `--version` reports the published version rather than `dev`.
 3. nFPM outputs `.deb` and `.rpm` packages for Linux distribution users
 4. AUR workflow (`.github/workflows/aur.yml`) updates `PKGBUILD` and `.SRCINFO`
 5. Arch Linux users can then install/update via `yay -S emqutiti`
+
+### Preparing a maintenance release
+
+Update `PKGBUILD`, regenerate `.SRCINFO` with `makepkg --printsrcinfo`, and add
+`docs/releases/vVERSION.md` in a reviewed PR. Run `make test`, relevant runtime
+checks, and `goreleaser check` before tagging merged main. The tag workflow reads
+that release note file, builds archives/packages and the optional prebuilt-binary
+Flatpak bundle, and publishes the release. AUR publishing computes and records the
+tagged source archive SHA-256; the repository keeps `SKIP` until the tag exists.
+
+`flatpak/io.github.marang.Emqutiti.flathub.yml` is a separate, older source-build
+manifest pinned to v0.7.5 and its matching vendored modules. It is not used by the
+tag release workflow. Updating it requires a matching source archive, vendored
+modules, and a Go toolchain compatible with the selected SDK; a tag release does
+not imply that a new Flathub source build has been published.

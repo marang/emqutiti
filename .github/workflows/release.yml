@@ -17,6 +17,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify released commit is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+
       - name: Setup Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -26,7 +31,7 @@ jobs:
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
           version: "~> v2"
-          args: release --clean
+          args: release --clean --release-notes=docs/releases/${{ github.ref_name }}.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -54,7 +59,7 @@ jobs:
 
       - name: Build emqutiti binary for Flatpak
         run: |
-          go build -trimpath \
+          CGO_ENABLED=0 go build -trimpath \
             -ldflags="-s -w -X github.com/marang/emqutiti/cmd.version=${GITHUB_REF_NAME#v}" \
             -o flatpak/emqutiti ./cmd/emqutiti
 
@@ -68,6 +73,9 @@ jobs:
           flatpak build-bundle repo emqutiti.flatpak io.github.marang.Emqutiti \
             --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo
 
+      - name: Checksum Flatpak bundle
+        run: sha256sum emqutiti.flatpak > emqutiti.flatpak.sha256
+
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -77,4 +85,8 @@ jobs:
       - name: Upload Flatpak to GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          files: emqutiti.flatpak
+          files: |
+            emqutiti.flatpak
+            emqutiti.flatpak.sha256
+          overwrite_files: false
+          fail_on_unmatched_files: true
