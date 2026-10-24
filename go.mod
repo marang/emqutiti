@@ -13,7 +13,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/dgraph-io/badger/v4 v4.9.6
 	github.com/eclipse/paho.mqtt.golang v1.5.1
-	github.com/mattn/go-runewidth v0.0.27
+	github.com/mattn/go-runewidth v0.0.31
 	github.com/mochi-co/mqtt v1.3.2
 	github.com/muesli/termenv v0.16.0
 	github.com/sahilm/fuzzy v0.1.3
@@ -36,7 +36,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.4.2 // indirect
-	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
+	github.com/dlclark/regexp2/v2 v2.9.1 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
